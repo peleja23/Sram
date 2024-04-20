@@ -15,7 +15,6 @@ int main() {
         fputs("Erro ao abrir arquivo", stderr);
         exit(1);
     }
-
     // Obter tamanho do arquivo
     fseek(file, 0, SEEK_END);
     file_size = ftell(file);
