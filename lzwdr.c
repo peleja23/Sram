@@ -15,7 +15,7 @@
 #define ALPHABET_SIZE 256
 
 //Declaration of global variables
-int sizeOfTheDictionary = 0;
+long sizeOfTheDictionary = 0;
 int inxdexOfPattern = 1;
 bool dictionaryIsFull = false;
 
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]){
     char *prefixB;
     char* fileName;
     char* blockComparator;
-
+    char* sizeAux;
     //populate the dictionary
     for (int i  = 0; i < ALPHABET_SIZE; i++) {
         unsigned char ind[1];
@@ -135,6 +135,8 @@ int main(int argc, char *argv[]){
     strcpy(fileName, argv[1]);
     blockComparator = malloc(strlen(argv[2])+1);
     strcpy(blockComparator, argv[2]);
+    sizeAux = malloc(strlen(argv[3])+1);
+    strcpy(sizeAux, argv[3]);
 
     fileToCompress = fopen(fileName, "rb");
     if (fileToCompress == NULL) {
@@ -159,7 +161,17 @@ int main(int argc, char *argv[]){
             blockSize = 65536;
         }
     }
-
+     if( strcmp(sizeAux, "-12") == 0){
+        sizeOfTheDictionary = 4096;
+    } 
+    else{
+        if( strcmp(sizeAux, "-24") == 0){
+            sizeOfTheDictionary = 16777216;
+        } 
+        else{
+            sizeOfTheDictionary = 65536;
+        }
+    }
     buffer = malloc((char) malloc(sizeof(blockSize)));
     free(blockComparator);
     
@@ -173,7 +185,11 @@ int main(int argc, char *argv[]){
             exit(1);    
         }
 
-        //TODO 
+        //TODO
+        for(int i=0; i<sizeof(blockCompressed); i++){
+            unsigned char aux; 
+
+        }
 
         fileSize -= blockCompressed;
         free(blockCompressed);
