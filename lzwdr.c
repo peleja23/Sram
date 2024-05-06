@@ -52,10 +52,10 @@ trieNode *createNewNode(){
     @return - this function returns an integer with the value: 0 if the dictionary is full OR the value of index associated with the inserted pattern.
 */
 int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
-
     if(*dictionary == NULL){
         *dictionary = createNewNode();
     }
+    
     unsigned char *text = pattern;
     trieNode *temporaryNode = *dictionary;
 
@@ -84,7 +84,6 @@ int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
     @return - this function returns an integer with the value: 0 if the pattern doesn't exists OR the value of index associated with the inserted pattern.
 */
 int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
-    printf("ola");
     unsigned char *text = pattern;
     trieNode * temporaryNode = dictionary;
 
@@ -106,7 +105,7 @@ int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
     @return - this function returns an unsigned char array with the inverted value of the originalArray.
 */
 unsigned char* invertArray(unsigned char *originalArray) {
-    unsigned char* invertedArray = (unsigned char*)malloc(size);
+    unsigned char* invertedArray = (unsigned char*)malloc(sizeof(originalArray));
     
     for (int i = 0; i < sizeof(originalArray); i++) {
         invertedArray[i] = originalArray[sizeof(originalArray) - 1 - i];
@@ -123,7 +122,6 @@ TODO   argv[4] - string value associated with the type of dictionary.
 TODO   argv[5] - string value associated with the dictionary management options.
 */
 int main(int argc, char *argv[]){
-    
     trieNode * dictionary = NULL;
     FILE *fileToCompress;
     FILE *outputFile;
