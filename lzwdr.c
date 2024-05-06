@@ -100,6 +100,15 @@ int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
     return temporaryNode->indexOfPattern;
 }
 
+unsigned char* invertArray(unsigned ogArr [], int size) {
+    unsigned char* invertedArr = (unsigned char*)malloc(size * sizeof(ogArr));
+    int end = size - 1;
+        for (int i = 0; i < size; i++) {
+            invertedArr[i] = arr[end - i];
+        }
+    return invertedArr;
+}
+
 /*
     argv[1] - name of the file that we need to compress.
     argv[2] - string value associated with the size of the block being utilized.
@@ -112,13 +121,13 @@ int main(int argc, char *argv[]){
     trieNode * dictionary = NULL;
     FILE *fileToCompress;
     FILE *outputFile;
-    char *buffer;
+    unsigned char *buffer;
     int blockSize;
     long fileSize;
     size_t blockCompressed;
     clock_t start, end;
-    char *prefixA;
-    char *prefixB;
+    unsigned char *prefixA;
+    unsigned char *prefixB;
     char* fileName;
     char* blockComparator;
     char* sizeAux;
@@ -170,20 +179,21 @@ int main(int argc, char *argv[]){
             sizeOfTheDictionary = 65536;
         }
     }
-    buffer = malloc((char) malloc(sizeof(blockSize)));
+    buffer = malloc((unsigned char) malloc(sizeof(blockSize)));
     free(blockComparator);
-    // TODO 
-    
+
     start = clock();
     while (fileSize > 0) {
         blockCompressed = fread(buffer, 1, blockSize, fileToCompress); 
         //TODO
+        //prefixA = malloc
+        //prefixB = malloc
         for(int i=0; i<blockCompressed; i++){
             unsigned char aux;
-            prefixA = buffer;
-            printf("%c", *prefixA);
-            prefixB = prefixA + 1;
-            printf("%c", *prefixB);
+            prefixA = buffer[i];
+            printf("%c", prefixA);
+            prefixB = buffer[i + 1];
+            printf("%c", prefixB);
             searchInTrie(dictionary, prefixA, 1);
             if(searchInTrie(dictionary, prefixA, 1) == -1){
                 insertNode(&dictionary, *prefixA, 1);
