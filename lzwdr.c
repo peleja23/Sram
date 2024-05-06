@@ -56,7 +56,6 @@ int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
     if(*dictionary == NULL){
         *dictionary = createNewNode();
     }
-
     unsigned char *text = pattern;
     trieNode *temporaryNode = *dictionary;
 
@@ -85,8 +84,8 @@ int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
     @return - this function returns an integer with the value: 0 if the pattern doesn't exists OR the value of index associated with the inserted pattern.
 */
 int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
+    printf("ola");
     unsigned char *text = pattern;
-
     trieNode * temporaryNode = dictionary;
 
     for(int i = 0; i < length ; i++){
@@ -109,7 +108,7 @@ TODO   argv[4] - string value associated with the type of dictionary.
 TODO   argv[5] - string value associated with the dictionary management options.
 */
 int main(int argc, char *argv[]){
-
+    
     trieNode * dictionary = NULL;
     FILE *fileToCompress;
     FILE *outputFile;
@@ -129,7 +128,6 @@ int main(int argc, char *argv[]){
         ind[0] = (unsigned char)i;
         insertNode(&dictionary, ind, 1);
     }
-
     //Memory allocation + string copy for values received from the arguments
     fileName = malloc(strlen(argv[1])+1);
     strcpy(fileName, argv[1]);
@@ -148,12 +146,12 @@ int main(int argc, char *argv[]){
     fseek(fileToCompress, 0, SEEK_END);
     fileSize = ftell(fileToCompress);
     rewind(fileToCompress); 
-
     //Determining the size of the blocks being read from the file dependent on the value of argv[2].
     if( strcmp(blockComparator, "-86") == 0){
         blockSize = 88064;
     } 
     else{
+        
         if( strcmp(blockComparator, "-32") == 0){
             blockSize = 32768;
         } 
@@ -161,7 +159,7 @@ int main(int argc, char *argv[]){
             blockSize = 65536;
         }
     }
-     if( strcmp(sizeAux, "-12") == 0){
+    if( strcmp(sizeAux, "-12") == 0){
         sizeOfTheDictionary = 4096;
     } 
     else{
@@ -174,20 +172,25 @@ int main(int argc, char *argv[]){
     }
     buffer = malloc((char) malloc(sizeof(blockSize)));
     free(blockComparator);
-    
     // TODO 
     
     start = clock();
     while (fileSize > 0) {
-        blockCompressed = fread(buffer, 1, blockSize, fileToCompress);
-        if (blockCompressed != blockSize && !feof(fileToCompress)) {
-            fputs("Erro ao ler arquivo", stderr);
-            exit(1);    
-        }
-
+        blockCompressed = fread(buffer, 1, blockSize, fileToCompress); 
         //TODO
-        for(int i=0; i<sizeof(blockCompressed); i++){
-            unsigned char aux; 
+        for(int i=0; i<blockCompressed; i++){
+            unsigned char aux;
+            prefixA = buffer;
+            printf("%c", *prefixA);
+            prefixB = prefixA + 1;
+            printf("%c", *prefixB);
+            searchInTrie(dictionary, prefixA, 1);
+            if(searchInTrie(dictionary, prefixA, 1) == -1){
+                insertNode(&dictionary, *prefixA, 1);
+            }
+            if(searchInTrie(dictionary, prefixB, 1) == -1){
+                insertNode(&dictionary, *prefixB, 1);
+            }
 
         }
 
