@@ -101,7 +101,7 @@ int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
 }
 
 unsigned char* invertArray(unsigned char ogArr [], int size) {
-    unsigned char* invertedArr = (unsigned char*)malloc(size * sizeof(ogArr));
+    unsigned char* invertedArr = (unsigned char*)malloc(size);
     int end = size - 1;
         for (int i = 0; i < size; i++) {
             invertedArr[i] = arr[end - i];
