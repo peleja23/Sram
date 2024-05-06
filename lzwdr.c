@@ -100,14 +100,19 @@ int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
     return temporaryNode->indexOfPattern;
 }
 
-unsigned char* invertArray(unsigned char originalArr []) {
-    int size = sizeof(originalArr);
-    unsigned char* invertedArr = (unsigned char*)malloc(size);
-    int end = size - 1;
-        for (int i = 0; i < size; i++) {
-            invertedArr[i] = originalArr[end - i];
-        }
-    return invertedArr;
+/*
+    Function to invert an array of unsigned char
+    @param originalArray - the array to be inverted
+    @return - this function returns an unsigned char array with the inverted value of the originalArray.
+*/
+unsigned char* invertArray(unsigned char *originalArray) {
+    unsigned char* invertedArray = (unsigned char*)malloc(size);
+    
+    for (int i = 0; i < sizeof(originalArray); i++) {
+        invertedArray[i] = originalArray[sizeof(originalArray) - 1 - i];
+    }
+    
+    return invertedArray;
 }
 
 /*
