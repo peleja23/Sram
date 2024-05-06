@@ -104,7 +104,7 @@ unsigned char* invertArray(unsigned char ogArr [], int size) {
     unsigned char* invertedArr = (unsigned char*)malloc(size);
     int end = size - 1;
         for (int i = 0; i < size; i++) {
-            invertedArr[i] = arr[end - i];
+            invertedArr[i] = ogArr[end - i];
         }
     return invertedArr;
 }
