@@ -45,9 +45,9 @@ trieNode *createNewNode(){
 
 /*
     Function to add a new node in the trie.
-    @param dictionary - dictionary being used
-    @param pattern - new pattern that we want to insert in the function
-    @param lenght - length of the pattern
+    @param dictionary - dictionary being used.
+    @param pattern - new pattern that we want to insert in the function.
+    @param lenght - length of the pattern.
     @return - this function returns an integer with the value: 0 if the dictionary is full OR the value of index associated with the inserted pattern.
 */
 int insert(trieNode **dictionary, unsigned char *pattern){
@@ -76,9 +76,9 @@ int insert(trieNode **dictionary, unsigned char *pattern){
 
 /*
     Function to search for a node in the trie.
-    @param dictionary - dictionary being used
-    @param pattern - new pattern that we want to insert in the function
-    @param lenght - length of the pattern
+    @param dictionary - dictionary being used.
+    @param pattern - new pattern that we want to insert in the function.
+    @param lenght - length of the pattern.
     @return - this function returns an integer with the value: 0 if the pattern doesn't exists OR the value of index associated with the inserted pattern.
 */
 int search(trieNode *dictionary, unsigned char *pattern){
@@ -98,7 +98,20 @@ int search(trieNode *dictionary, unsigned char *pattern){
 }
 
 /*
-    Function to concatenate patterns
+    Function to add a pattern code to the output string.
+    @param code - the code to be inserted in the output.
+    @param string - current output string.
+    @return - output string with the added code.
+*/
+char* output(int code, char* string){
+    string = realloc(string, sizeof(string) + 1);
+    strcat(string, sprintf(string, "%d", code));
+
+    return string;
+}
+
+/*
+    Function to concatenate patterns.
     @param prefixA - pattern A.
     @param prefixB - pattern B.
     @return - this function returns the concatenation of the two input patterns.
@@ -117,12 +130,12 @@ unsigned char* concat(unsigned char* prefixA, unsigned char* prefixB){
 }
 
 /*
-    Function to invert an array of unsigned char
-    @param originalArray - the array to be inverted
+    Function to invert an array of unsigned char.
+    @param originalArray - the array to be inverted.
     @return - this function returns an unsigned char array with the inverted value of the originalArray.
 */
 unsigned char* reverse(unsigned char *originalArray) {
-    unsigned char* invertedArray = (unsigned char*)malloc(sizeof(originalArray));
+    unsigned char* invertedArray = (unsigned char)malloc(sizeof(originalArray));
     
     for (int i = 0; i < sizeof(originalArray); i++) {
         invertedArray[i] = originalArray[sizeof(originalArray) - 1 - i];
