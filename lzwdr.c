@@ -17,7 +17,6 @@
 //Declaration of global variables
 long sizeOfTheDictionary = 0;
 int inxdexOfPattern = 1;
-bool dictionaryIsFull = false;
 
 typedef struct trieNode {
     struct trieNode *children[ALPHABET_SIZE]; 
@@ -65,7 +64,7 @@ int insert(trieNode **dictionary, unsigned char *pattern){
         temporaryNode = temporaryNode->children[text[level]];
     }
 
-    if(dictionaryIsFull){
+    if(indexOfPattern >= sizeOfTheDictionary){
         return 0;
     } else {
         temporaryNode->indexOfPattern = inxdexOfPattern;
