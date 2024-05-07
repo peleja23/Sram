@@ -25,7 +25,6 @@ typedef struct trieNode {
     int numberOfSearches;
 } trieNode;
 
-
 /*
     Function to creat a new node in the trie.
     @return newNode, returns the new node.
@@ -51,7 +50,7 @@ trieNode *createNewNode(){
     @param lenght - length of the pattern
     @return - this function returns an integer with the value: 0 if the dictionary is full OR the value of index associated with the inserted pattern.
 */
-int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
+int insert(trieNode **dictionary, unsigned char *pattern){
     if(*dictionary == NULL){
         *dictionary = createNewNode();
     }
@@ -59,7 +58,7 @@ int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
     unsigned char *text = pattern;
     trieNode *temporaryNode = *dictionary;
 
-    for(int level = 0; level < length; level++){
+    for(int level = 0; level < sizeof(pattern); level++){
         if(temporaryNode->children[text[level]] == NULL){
             temporaryNode->children[text[level]] = createNewNode();
         }
@@ -75,7 +74,6 @@ int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
     }
 }
 
-
 /*
     Function to search for a node in the trie.
     @param dictionary - dictionary being used
@@ -83,11 +81,11 @@ int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
     @param lenght - length of the pattern
     @return - this function returns an integer with the value: 0 if the pattern doesn't exists OR the value of index associated with the inserted pattern.
 */
-int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
+int search(trieNode *dictionary, unsigned char *pattern){
     unsigned char *text = pattern;
     trieNode * temporaryNode = dictionary;
 
-    for(int i = 0; i < length ; i++){
+    for(int i = 0; i < sizeof(pattern) ; i++){
         if(temporaryNode->children[text[i]] == NULL){
             return 0;
         }
@@ -100,11 +98,30 @@ int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
 }
 
 /*
+    Function to concatenate patterns
+    @param prefixA - pattern A.
+    @param prefixB - pattern B.
+    @return - this function returns the concatenation of the two input patterns.
+*/
+unsigned char* concat(unsigned char* prefixA, unsigned char* prefixB){
+    unsigned char* concatenation = malloc((unsigned char) malloc(sizeof(prefixA) + sizeof(prefixB)));
+    
+    for(int i = 0; i < sizeof(prefixA), i++){
+        concatenation[i] = prefixA[i];
+    }
+    for (int i = 0; i < sizeof(prefixB); i++) {
+        concatenation[i + sizeof(prefixA)] = prefixB[i];
+    }
+        
+    return concatenation;
+}
+
+/*
     Function to invert an array of unsigned char
     @param originalArray - the array to be inverted
     @return - this function returns an unsigned char array with the inverted value of the originalArray.
 */
-unsigned char* invertArray(unsigned char *originalArray) {
+unsigned char* reverse(unsigned char *originalArray) {
     unsigned char* invertedArray = (unsigned char*)malloc(sizeof(originalArray));
     
     for (int i = 0; i < sizeof(originalArray); i++) {
@@ -117,7 +134,7 @@ unsigned char* invertArray(unsigned char *originalArray) {
 /*
     argv[1] - name of the file that we need to compress.
     argv[2] - string value associated with the size of the block being utilized.
-TODO   argv[3] - string value associated with the maximum size of the dictionary.
+    argv[3] - string value associated with the maximum size of the dictionary.
 TODO   argv[4] - string value associated with the type of dictionary.
 TODO   argv[5] - string value associated with the dictionary management options.
 */
