@@ -112,18 +112,18 @@ char* output(int code, char* string){
 
 /*
     Function to concatenate patterns.
-    @param prefixA - pattern A.
-    @param prefixB - pattern B.
+    @param patternA - pattern A.
+    @param patternB - pattern B.
     @return - this function returns the concatenation of the two input patterns.
 */
-unsigned char* concat(unsigned char* prefixA, unsigned char* prefixB){
-    unsigned char* concatenation = malloc((unsigned char) malloc(sizeof(prefixA) + sizeof(prefixB)));
+unsigned char* concat(unsigned char* patternA, unsigned char* patternB){
+    unsigned char* concatenation = malloc((unsigned char) malloc(sizeof(patternA) + sizeof(patternB)));
     
-    for(int i = 0; i < sizeof(prefixA), i++){
-        concatenation[i] = prefixA[i];
+    for(int i = 0; i < sizeof(patternA), i++){
+        concatenation[i] = patternA[i];
     }
-    for (int i = 0; i < sizeof(prefixB); i++) {
-        concatenation[i + sizeof(prefixA)] = prefixB[i];
+    for (int i = 0; i < sizeof(patternB); i++) {
+        concatenation[i + sizeof(patternA)] = patternB[i];
     }
         
     return concatenation;
@@ -145,6 +145,67 @@ unsigned char* reverse(unsigned char *originalArray) {
 }
 
 /*
+    Function to process a block of a file and compress it using lzwdr algorithm.
+    @param block - block to be processed.
+    @param blockSize - size of the block to be processed.
+    @param dictionary - dictionary being used.
+    @return - this function returns the output string after the block has been processed by the lzwdr algorithm.
+*/
+char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
+    char* outputString;
+    unsigned char* patternA = malloc((unsigned char) malloc(1));
+    unsigned char* patternB  = malloc((unsigned char) malloc(1));
+    int code = 0;
+    int index = 0;
+    
+    patternA = block[index];
+    index++; 
+
+    while(index + i < blockSize) {
+        //Processing block to find the bigger patternB after patternA already in D. 
+        code = search(patternA, dictionary);
+        patternB = block[index];
+        int i = 0;
+    
+        while(search(concat(patternB, block[index+i]), dictionary)) {
+            unsigned char* aux = concat(patternB, block[index+i]);
+            patternB = realloc((unsigned char) malloc(sizeof(aux)));
+            patternB = aux;
+            i = i + 1;
+        }
+
+        //Send the code of patternA to the output. 
+        output(code, outputString);
+        
+        //Insert in the dictionary all the new patterns while the dictionary is not full
+        int j = 0;
+        int t = sizeOfTheDictionary - 1;
+        
+        while(j <= i && t < sizeOfTheDictionary) {
+            t = insert(concat(patternA, patternB[j]), dictionary);
+            
+            if(t < sizeOfTheDictionary){
+                 t = insert(reverse(concat(patternA, patternB[j])), dictionary);
+            }
+        
+            j++;
+        }
+        
+        if(ind + i > blockSize){
+            output(search(patternB, dictionary), outputString);
+        } else{
+            index = index + i;
+            patternA =  realloc((unsigned char) malloc(sizeof(patternB)));
+            patternA = patternB;
+        }
+    }
+        
+    free(patternA);
+    free(patternB);
+    return outputString;
+}
+
+/*
     argv[1] - name of the file that we need to compress.
     argv[2] - string value associated with the size of the block being utilized.
     argv[3] - string value associated with the maximum size of the dictionary.
@@ -158,10 +219,10 @@ int main(int argc, char *argv[]){
     unsigned char *buffer;
     int blockSize;
     long fileSize;
-    size_t blockCompressed;
+    size_t bytesRead;
     clock_t start, end;
-    unsigned char *prefixA;
-    unsigned char *prefixB;
+    unsigned char *patternA;
+    unsigned char *patternB;
     char* fileName;
     char* blockComparator;
     char* sizeAux;
@@ -218,28 +279,12 @@ int main(int argc, char *argv[]){
 
     start = clock();
     while (fileSize > 0) {
-        blockCompressed = fread(buffer, 1, blockSize, fileToCompress); 
-        //TODO
-        //prefixA = malloc
-        //prefixB = malloc
-        for(int i=0; i<blockCompressed; i++){
-            unsigned char aux;
-            prefixA = buffer[i];
-            printf("%c", prefixA);
-            prefixB = buffer[i + 1];
-            printf("%c", prefixB);
-            searchInTrie(dictionary, prefixA, 1);
-            if(searchInTrie(dictionary, prefixA, 1) == -1){
-                insertNode(&dictionary, *prefixA, 1);
-            }
-            if(searchInTrie(dictionary, prefixB, 1) == -1){
-                insertNode(&dictionary, *prefixB, 1);
-            }
-
-        }
-
-        fileSize -= blockCompressed;
-        free(blockCompressed);
+        bytesRead = fread(buffer, 1, blockSize, fileToCompress); 
+        
+        lzwdr(buffer, bytesRead, dictionary);
+            
+        fileSize -= bytesRead;
+        free(bytesRead);
     }
     end = clock();
     double duration = ((double)end - start)/CLOCKS_PER_SEC; //duration of the compression in seconds.
