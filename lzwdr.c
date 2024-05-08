@@ -16,7 +16,7 @@
 
 //Declaration of global variables
 long sizeOfTheDictionary = 0;
-int inxdexOfPattern = 1;
+int indexOfPattern = 1;
 
 typedef struct trieNode {
     struct trieNode *children[ALPHABET_SIZE]; 
@@ -53,7 +53,6 @@ int insert(trieNode **dictionary, unsigned char *pattern){
     if(*dictionary == NULL){
         *dictionary = createNewNode();
     }
-    
     unsigned char *text = pattern;
     trieNode *temporaryNode = *dictionary;
 
@@ -67,8 +66,8 @@ int insert(trieNode **dictionary, unsigned char *pattern){
     if(indexOfPattern >= sizeOfTheDictionary){
         return 0;
     } else {
-        temporaryNode->indexOfPattern = inxdexOfPattern;
-        ++inxdexOfPattern;
+        temporaryNode->indexOfPattern = indexOfPattern;
+        ++indexOfPattern;
         return  temporaryNode->indexOfPattern;
     }
 }
@@ -83,6 +82,7 @@ int insert(trieNode **dictionary, unsigned char *pattern){
 int search(trieNode *dictionary, unsigned char *pattern){
     unsigned char *text = pattern;
     trieNode * temporaryNode = dictionary;
+    printf("alo pqp");
 
     for(int i = 0; i < sizeof(pattern) ; i++){
         if(temporaryNode->children[text[i]] == NULL){
@@ -118,7 +118,7 @@ char* output(int code, char* string){
 unsigned char* concat(unsigned char* patternA, unsigned char* patternB){
     unsigned char* concatenation = malloc((unsigned char) malloc(sizeof(patternA) + sizeof(patternB)));
     
-    for(int i = 0; i < sizeof(patternA), i++){
+    for(int i = 0; i < sizeof(patternA); i++){
         concatenation[i] = patternA[i];
     }
     for (int i = 0; i < sizeof(patternB); i++) {
@@ -156,19 +156,19 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
     unsigned char* patternB  = malloc((unsigned char) malloc(1));
     int code = 0;
     int index = 0;
-    
+    int i = 0;
     patternA = block[index];
     index++; 
-
-    while(index + i < blockSize) {
-        //Processing block to find the bigger patternB after patternA already in D. 
-        code = search(patternA, dictionary);
-        patternB = block[index];
-        int i = 0;
     
+    while(index + i < blockSize) {
+        //Processing block to find the bigger patternB after patternA already in D.
+        printf("alo");
+        code = search(patternA, dictionary);
+        
+        patternB = block[index];
         while(search(concat(patternB, block[index+i]), dictionary)) {
             unsigned char* aux = concat(patternB, block[index+i]);
-            patternB = realloc((unsigned char) malloc(sizeof(aux)));
+            patternB = realloc(patternB,sizeof(aux)+1);
             patternB = aux;
             i = i + 1;
         }
@@ -190,11 +190,11 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
             j++;
         }
         
-        if(ind + i > blockSize){
+        if(index + i > blockSize){
             output(search(patternB, dictionary), outputString);
         } else{
             index = index + i;
-            patternA =  realloc((unsigned char) malloc(sizeof(patternB)));
+            patternA =  realloc(patternA,sizeof(patternB)+1);
             patternA = patternB;
         }
     }
@@ -216,7 +216,7 @@ int main(int argc, char *argv[]){
     FILE *fileToCompress;
     FILE *outputFile;
     unsigned char *buffer;
-    int blockSize;
+    size_t blockSize;
     long fileSize;
     size_t bytesRead;
     clock_t start, end;
@@ -229,7 +229,7 @@ int main(int argc, char *argv[]){
     for (int i  = 0; i < ALPHABET_SIZE; i++) {
         unsigned char ind[1];
         ind[0] = (unsigned char)i;
-        insertNode(&dictionary, ind, 1);
+        insert(&dictionary, ind);
     }
     //Memory allocation + string copy for values received from the arguments
     fileName = malloc(strlen(argv[1])+1);
@@ -273,13 +273,15 @@ int main(int argc, char *argv[]){
             sizeOfTheDictionary = 65536;
         }
     }
-    buffer = malloc((unsigned char) malloc(sizeof(blockSize)));
+    buffer = malloc(blockSize);
     free(blockComparator);
 
     start = clock();
     while (fileSize > 0) {
+        printf("%d \n",blockSize);
         bytesRead = fread(buffer, 1, blockSize, fileToCompress); 
-        
+        printf("%d \n",sizeof(buffer));
+        printf("%d \n",bytesRead);
         lzwdr(buffer, bytesRead, dictionary);
             
         fileSize -= bytesRead;
