@@ -82,16 +82,16 @@ int insert(unsigned char *pattern, int length, trieNode **dictionary){
 */
 int search(unsigned char *pattern, int length, trieNode *dictionary){
     trieNode * temporaryNode = dictionary;
-
+    
     for(int i = 0; i < length ; i++){
         if(temporaryNode->children[pattern[i]] == NULL){
+            printf("before return search\n");
             return 0;
         }
 
-        unsigned char newpattern = pattern[i];
-        temporaryNode = temporaryNode->children[newpattern];
+        temporaryNode = temporaryNode->children[pattern[i]];
     }
-
+    printf("before return search\n");
     return temporaryNode->indexOfPattern;
 }
 
@@ -104,8 +104,7 @@ int search(unsigned char *pattern, int length, trieNode *dictionary){
     @return - output string with the added code.
 */
 char* output(int code, char* string, int length){
-    string = realloc(string, length + 1 * sizeof(char));
-    strcat(string, sprintf(string, "%d", code));
+    sprintf(string, strcat(string,"%d"), code);
 
     return string;
 }
@@ -119,15 +118,14 @@ char* output(int code, char* string, int length){
     @return - this function returns the concatenation of the two input patterns.
 */
 unsigned char* concat(unsigned char* patternA, int lengthA, unsigned char* patternB, int lengthB){
+
     unsigned char* concatenation = malloc((lengthA + lengthB) * sizeof(unsigned char));
-    
-    for(int i = 0; i < sizeof(patternA); i++){
+    for(int i = 0; i < lengthA; i++){
         concatenation[i] = patternA[i];
     }
     for (int i = 0; i < lengthB; i++) {
         concatenation[i + lengthA] = patternB[i];
     }
-        
     return concatenation;
 }
 
@@ -156,7 +154,7 @@ unsigned char* reverse(unsigned char *originalArray, int lenght) {
 */
 char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
     char* outputString = (char*)malloc(sizeof(char));
-    int sizeOfOutputString = sizeof(char);
+    int sizeOfOutputString = 1;
     unsigned char* patternA = malloc(sizeof(unsigned char));
     unsigned char* patternB  = malloc(sizeof(unsigned char));
     int sizeOfPatternA = sizeof(unsigned char);
@@ -169,38 +167,40 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
     
     while(index + i < blockSize) {
         //Processing block to find the bigger patternB after patternA already in D.
-        printf("%d", sizeOfPatternA);
-        printf("%c \n", patternA);
-        code = search(patternA, sizeOfPatternA, dictionary);
-        printf("%d", sizeOfPatternA);
+        code = search(&patternA, sizeOfPatternA, dictionary);
         patternB = block[index];
-        while(search(concat(patternB, sizeOfPatternB, block[index+i], sizeof(unsigned char)), sizeOfPatternB + sizeof(unsigned char), dictionary)) {
-            unsigned char* aux = concat(patternB, sizeOfPatternB, block[index+i], sizeof(unsigned char));
+
+        while(search(concat(&patternB, sizeOfPatternB, &block[index+i], 1), sizeOfPatternB + 1, dictionary) != 0) {
+            printf("teste");
+            unsigned char* aux = concat(&patternB, sizeOfPatternB, block[index+i], sizeof(unsigned char));
             patternB = realloc(patternB, sizeOfPatternB + 1);
             patternB = aux;
             i = i + 1;
         }
 
         //Send the code of patternA to the output. 
-        output(code, outputString, sizeOfOutputString);
-        sizeOfOutputString += sizeof(char);
-        outputString = realloc(outputString, sizeOfOutputString);
-        
+        outputString = output(code, &outputString, sizeOfOutputString);
+   
+        sizeOfOutputString++;
+        printf("teste \n");
+        outputString = realloc(outputString, sizeOfOutputString * sizeof(char));
+        printf("teste2 \n");
+
         //Insert in the dictionary all the new patterns while the dictionary is not full
         int j = 0;
         int t = sizeOfTheDictionary - 1;
         
         while(j <= i && t < sizeOfTheDictionary) {
-            t = insert(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), &dictionary);
+            t = insert(concat(&patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), &dictionary);
             if(t < sizeOfTheDictionary){
-                 t = insert(reverse(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char)),sizeOfPatternA + sizeof(unsigned char), &dictionary);
+                 t = insert(reverse(concat(&patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char)),sizeOfPatternA + sizeof(unsigned char), &dictionary);
             }
         
             j++;
         }
         
         if(index + i > blockSize){
-            output(search(patternB, sizeOfPatternB, dictionary), outputString, sizeOfOutputString);
+            output(search(&patternB, sizeOfPatternB, dictionary), outputString, sizeOfOutputString);
         } else{
             index = index + i;
             patternA =  realloc(patternA,sizeOfPatternB);
