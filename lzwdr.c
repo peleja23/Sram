@@ -209,6 +209,9 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
             index = index + i;
             patternA =  realloc(patternA,sizeOfPatternB);
             patternA = patternB;
+            sizeOfPatternA = sizeOfPatternB;
+            sizeOfPatternB = sizeof(unsigned char);
+            patternB = realloc(patternB, sizeOfPatternB);
         }
     }
         
