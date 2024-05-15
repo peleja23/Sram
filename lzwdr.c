@@ -55,7 +55,7 @@ int insert(unsigned char *pattern, int length, trieNode **dictionary){
         *dictionary = createNewNode();
     }
 
-    unsigned char *text = pattern;
+    unsigned char *text =  (unsigned char *)pattern;
     trieNode *temporaryNode = *dictionary;
 
     for(int level = 0; level < length; level++){
@@ -83,7 +83,7 @@ int insert(unsigned char *pattern, int length, trieNode **dictionary){
     @return - this function returns an integer with the value: 0 if the pattern doesn't exists OR the value of index associated with the inserted pattern.
 */
 int search(unsigned char *pattern, int length, trieNode *dictionary){
-    unsigned char *text = pattern;
+    unsigned char *text =  (unsigned char *)pattern;
 
     trieNode * temporaryNode = dictionary;
 
