@@ -65,11 +65,11 @@ int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
         temporaryNode = temporaryNode->children[text[level]];
     }
 
-    if(dictionaryIsFull){
+    if(indexOfPattern >= sizeOfTheDictionary){
         return 0;
     } else {
-        temporaryNode->indexOfPattern = inxdexOfPattern;
-        ++inxdexOfPattern;
+        temporaryNode->indexOfPattern = indexOfPattern;
+        ++indexOfPattern;
         return  temporaryNode->indexOfPattern;
     }
 }
@@ -82,7 +82,7 @@ int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
     @param lenght - length of the pattern
     @return - this function returns an integer with the value: 0 if the pattern doesn't exists OR the value of index associated with the inserted pattern.
 */
-int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
+int search(trieNode *dictionary, unsigned char *pattern, int length){
     unsigned char *text = pattern;
 
     trieNode * temporaryNode = dictionary;
@@ -174,7 +174,7 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
     while(index + i < blockSize) {
         //Processing block to find the bigger patternB after patternA already in D.
         printf("alo");
-        code = search(patternA, sizeofPatternA, dictionary);
+        code = search(patternA, sizeOfPatternA, dictionary);
         
         patternB = block[index];
         while(search(concat(patternB, sizeOfPatternB, block[index+i], sizeof(unsigned char)), sizeOfPatternB + sizeof(unsigned char), dictionary)) {
@@ -186,7 +186,7 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
 
         //Send the code of patternA to the output. 
         output(code, outputString, sizeOfOutputString);
-        sizeOutputString += sizeof(char);
+        sizeOfOutputString += sizeof(char);
         outputString = realloc(outputString, sizeOfOutputString);
         
         //Insert in the dictionary all the new patterns while the dictionary is not full
@@ -197,7 +197,7 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
             t = insert(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), dictionary);
             
             if(t < sizeOfTheDictionary){
-                 t = insert(reverse(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), dictionary);
+                 t = insert(reverse(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char)), dictionary);
             }
         
             j++;
