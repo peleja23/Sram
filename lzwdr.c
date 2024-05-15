@@ -44,47 +44,50 @@ trieNode *createNewNode(){
 
 /*
     Function to add a new node in the trie.
-    @param dictionary - dictionary being used.
-    @param pattern - new pattern that we want to insert in the function.
-    @param lenght - length of the pattern.
+    @param dictionary - dictionary being used
+    @param pattern - new pattern that we want to insert in the function
+    @param lenght - length of the pattern
     @return - this function returns an integer with the value: 0 if the dictionary is full OR the value of index associated with the inserted pattern.
 */
-int insert(trieNode **dictionary, unsigned char *pattern){
+int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
+
     if(*dictionary == NULL){
         *dictionary = createNewNode();
     }
+
     unsigned char *text = pattern;
     trieNode *temporaryNode = *dictionary;
 
-    for(int level = 0; level < sizeof(pattern); level++){
+    for(int level = 0; level < length; level++){
         if(temporaryNode->children[text[level]] == NULL){
             temporaryNode->children[text[level]] = createNewNode();
         }
         temporaryNode = temporaryNode->children[text[level]];
     }
 
-    if(indexOfPattern >= sizeOfTheDictionary){
+    if(dictionaryIsFull){
         return 0;
     } else {
-        temporaryNode->indexOfPattern = indexOfPattern;
-        ++indexOfPattern;
+        temporaryNode->indexOfPattern = inxdexOfPattern;
+        ++inxdexOfPattern;
         return  temporaryNode->indexOfPattern;
     }
 }
 
+
 /*
     Function to search for a node in the trie.
-    @param dictionary - dictionary being used.
-    @param pattern - new pattern that we want to insert in the function.
-    @param lenght - length of the pattern.
+    @param dictionary - dictionary being used
+    @param pattern - new pattern that we want to insert in the function
+    @param lenght - length of the pattern
     @return - this function returns an integer with the value: 0 if the pattern doesn't exists OR the value of index associated with the inserted pattern.
 */
-int search(trieNode *dictionary, unsigned char *pattern){
+int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
     unsigned char *text = pattern;
-    trieNode * temporaryNode = dictionary;
-    printf("alo pqp");
 
-    for(int i = 0; i < sizeof(pattern) ; i++){
+    trieNode * temporaryNode = dictionary;
+
+    for(int i = 0; i < length ; i++){
         if(temporaryNode->children[text[i]] == NULL){
             return 0;
         }
@@ -95,6 +98,7 @@ int search(trieNode *dictionary, unsigned char *pattern){
 
     return temporaryNode->indexOfPattern;
 }
+
 
 /*
     Function to add a pattern code to the output string.
