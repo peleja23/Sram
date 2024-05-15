@@ -241,12 +241,6 @@ int main(int argc, char *argv[]){
     char* fileName;
     char* blockComparator;
     char* sizeAux;
-    //populate the dictionary
-    for (int i  = 0; i < ALPHABET_SIZE; i++) {
-        unsigned char ind[1];
-        ind[0] = (unsigned char)i;
-        insert(ind, sizeof(ind), &dictionary);
-    }
     //Memory allocation + string copy for values received from the arguments
     fileName = malloc(strlen(argv[1])+1);
     strcpy(fileName, argv[1]);
@@ -289,6 +283,14 @@ int main(int argc, char *argv[]){
             sizeOfTheDictionary = 65536;
         }
     }
+
+    //populate the dictionary
+    for (int i  = 0; i < ALPHABET_SIZE; i++) {
+        unsigned char ind[1];
+        ind[0] = (unsigned char)i;
+        insert(ind, sizeof(ind), &dictionary);
+    }
+    
     buffer = malloc(blockSize * sizeof(unsigned char));
     free(blockComparator);
 
