@@ -116,7 +116,7 @@ char* output(int code, char* string){
     @return - this function returns the concatenation of the two input patterns.
 */
 unsigned char* concat(unsigned char* patternA, unsigned char* patternB){
-    unsigned char* concatenation = malloc((unsigned char) malloc(sizeof(patternA) + sizeof(patternB)));
+    unsigned char* concatenation = malloc((sizeof(patternA) + sizeof(patternB)) * sizeof(unsigned char));
     
     for(int i = 0; i < sizeof(patternA); i++){
         concatenation[i] = patternA[i];
@@ -134,7 +134,7 @@ unsigned char* concat(unsigned char* patternA, unsigned char* patternB){
     @return - this function returns an unsigned char array with the inverted value of the originalArray.
 */
 unsigned char* reverse(unsigned char *originalArray) {
-    unsigned char* invertedArray = (unsigned char)malloc(sizeof(originalArray));
+    unsigned char* invertedArray = malloc(sizeof(originalArray) * sizeof(unsigned char));
     
     for (int i = 0; i < sizeof(originalArray); i++) {
         invertedArray[i] = originalArray[sizeof(originalArray) - 1 - i];
@@ -152,8 +152,8 @@ unsigned char* reverse(unsigned char *originalArray) {
 */
 char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
     char* outputString;
-    unsigned char* patternA = malloc((unsigned char) malloc(1));
-    unsigned char* patternB  = malloc((unsigned char) malloc(1));
+    unsigned char* patternA = malloc(1 * sizeof(unsigned char));
+    unsigned char* patternB  = malloc(1 * sizeof(unsigned char));
     int code = 0;
     int index = 0;
     int i = 0;
@@ -168,7 +168,7 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
         patternB = block[index];
         while(search(concat(patternB, block[index+i]), dictionary)) {
             unsigned char* aux = concat(patternB, block[index+i]);
-            patternB = realloc(patternB,sizeof(aux)+1);
+            patternB = realloc(patternB, sizeof(aux)+1);
             patternB = aux;
             i = i + 1;
         }
@@ -273,7 +273,7 @@ int main(int argc, char *argv[]){
             sizeOfTheDictionary = 65536;
         }
     }
-    buffer = malloc(blockSize);
+    buffer = malloc(blockSize * sizeof(unsigned char));
     free(blockComparator);
 
     start = clock();
