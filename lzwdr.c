@@ -50,19 +50,17 @@ trieNode *createNewNode(){
     @return - this function returns an integer with the value: 0 if the dictionary is full OR the value of index associated with the inserted pattern.
 */
 int insert(unsigned char *pattern, int length, trieNode **dictionary){
-
     if(*dictionary == NULL){
         *dictionary = createNewNode();
     }
-
-    unsigned char *text = pattern;
+    
     trieNode *temporaryNode = *dictionary;
 
     for(int level = 0; level < length; level++){
-        if(temporaryNode->children[text[level]] == NULL){
-            temporaryNode->children[text[level]] = createNewNode();
+        if(temporaryNode->children[pattern[level]] == NULL){
+            temporaryNode->children[pattern[level]] = createNewNode();
         }
-        temporaryNode = temporaryNode->children[text[level]];
+        temporaryNode = temporaryNode->children[pattern[level]];
     }
 
     if(indexOfPattern >= sizeOfTheDictionary){
@@ -83,17 +81,15 @@ int insert(unsigned char *pattern, int length, trieNode **dictionary){
     @return - this function returns an integer with the value: 0 if the pattern doesn't exists OR the value of index associated with the inserted pattern.
 */
 int search(unsigned char *pattern, int length, trieNode *dictionary){
-    unsigned char *text = pattern;
-
     trieNode * temporaryNode = dictionary;
 
     for(int i = 0; i < length ; i++){
-        if(temporaryNode->children[text[i]] == NULL){
+        if(temporaryNode->children[pattern[i]] == NULL){
             return 0;
         }
 
-        unsigned char newText = text[i];
-        temporaryNode = temporaryNode->children[newText];
+        unsigned char newpattern = pattern[i];
+        temporaryNode = temporaryNode->children[newpattern];
     }
 
     return temporaryNode->indexOfPattern;
