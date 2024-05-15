@@ -159,9 +159,12 @@ unsigned char* reverse(unsigned char *originalArray, int lenght) {
     @return - this function returns the output string after the block has been processed by the lzwdr algorithm.
 */
 char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
-    char* outputString;
-    unsigned char* patternA = malloc(1 * sizeof(unsigned char));
-    unsigned char* patternB  = malloc(1 * sizeof(unsigned char));
+    char* outputString = (char*)malloc(sizeof(char));
+    int sizeOfOutputString = sizeof(char);
+    unsigned char* patternA = malloc(sizeof(unsigned char));
+    unsigned char* patternB  = malloc(sizeof(unsigned char));
+    int sizeOfPatternA = sizeof(unsigned char);
+    int sizeOfPatternB = sizeof(unsigned char);
     int code = 0;
     int index = 0;
     int i = 0;
@@ -171,38 +174,40 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
     while(index + i < blockSize) {
         //Processing block to find the bigger patternB after patternA already in D.
         printf("alo");
-        code = search(patternA, dictionary);
+        code = search(patternA, sizeofPatternA, dictionary);
         
         patternB = block[index];
-        while(search(concat(patternB, block[index+i]), dictionary)) {
-            unsigned char* aux = concat(patternB, block[index+i]);
-            patternB = realloc(patternB, sizeof(aux)+1);
+        while(search(concat(patternB, sizeOfPatternB, block[index+i], sizeof(unsigned char)), sizeOfPatternB + sizeof(unsigned char), dictionary)) {
+            unsigned char* aux = concat(patternB, sizeOfPatternB, block[index+i], sizeof(unsigned char));
+            patternB = realloc(patternB, sizeOfPatternB + 1);
             patternB = aux;
             i = i + 1;
         }
 
         //Send the code of patternA to the output. 
-        output(code, outputString);
+        output(code, outputString, sizeOfOutputString);
+        sizeOutputString += sizeof(char);
+        outputString = realloc(outputString, sizeOfOutputString);
         
         //Insert in the dictionary all the new patterns while the dictionary is not full
         int j = 0;
         int t = sizeOfTheDictionary - 1;
         
         while(j <= i && t < sizeOfTheDictionary) {
-            t = insert(concat(patternA, patternB[j]), dictionary);
+            t = insert(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), dictionary);
             
             if(t < sizeOfTheDictionary){
-                 t = insert(reverse(concat(patternA, patternB[j])), dictionary);
+                 t = insert(reverse(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), dictionary);
             }
         
             j++;
         }
         
         if(index + i > blockSize){
-            output(search(patternB, dictionary), outputString);
+            output(search(patternB, sizeOfPatternB, dictionary), outputString);
         } else{
             index = index + i;
-            patternA =  realloc(patternA,sizeof(patternB)+1);
+            patternA =  realloc(patternA,sizeOfPatternB);
             patternA = patternB;
         }
     }
