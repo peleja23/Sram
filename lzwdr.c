@@ -49,7 +49,7 @@ trieNode *createNewNode(){
     @param lenght - length of the pattern
     @return - this function returns an integer with the value: 0 if the dictionary is full OR the value of index associated with the inserted pattern.
 */
-int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
+int insert(unsigned char *pattern, int length, trieNode **dictionary){
 
     if(*dictionary == NULL){
         *dictionary = createNewNode();
@@ -82,7 +82,7 @@ int insertNode(trieNode **dictionary, unsigned char *pattern, int length){
     @param lenght - length of the pattern
     @return - this function returns an integer with the value: 0 if the pattern doesn't exists OR the value of index associated with the inserted pattern.
 */
-int search(trieNode *dictionary, unsigned char *pattern, int length){
+int search(unsigned char *pattern, int length, trieNode *dictionary){
     unsigned char *text = pattern;
 
     trieNode * temporaryNode = dictionary;
@@ -173,9 +173,10 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
     
     while(index + i < blockSize) {
         //Processing block to find the bigger patternB after patternA already in D.
-        printf("alo");
+        printf("%d", sizeOfPatternA);
+        printf("%c \n", patternA);
         code = search(patternA, sizeOfPatternA, dictionary);
-        
+        printf("%d", sizeOfPatternA);
         patternB = block[index];
         while(search(concat(patternB, sizeOfPatternB, block[index+i], sizeof(unsigned char)), sizeOfPatternB + sizeof(unsigned char), dictionary)) {
             unsigned char* aux = concat(patternB, sizeOfPatternB, block[index+i], sizeof(unsigned char));
@@ -194,17 +195,16 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
         int t = sizeOfTheDictionary - 1;
         
         while(j <= i && t < sizeOfTheDictionary) {
-            t = insert(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), dictionary);
-            
+            t = insert(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), &dictionary);
             if(t < sizeOfTheDictionary){
-                 t = insert(reverse(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char)), dictionary);
+                 t = insert(reverse(concat(patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char)),sizeOfPatternA + sizeof(unsigned char), &dictionary);
             }
         
             j++;
         }
         
         if(index + i > blockSize){
-            output(search(patternB, sizeOfPatternB, dictionary), outputString);
+            output(search(patternB, sizeOfPatternB, dictionary), outputString, sizeOfOutputString);
         } else{
             index = index + i;
             patternA =  realloc(patternA,sizeOfPatternB);
@@ -245,7 +245,7 @@ int main(int argc, char *argv[]){
     for (int i  = 0; i < ALPHABET_SIZE; i++) {
         unsigned char ind[1];
         ind[0] = (unsigned char)i;
-        insert(&dictionary, ind);
+        insert(ind, sizeof(ind), &dictionary);
     }
     //Memory allocation + string copy for values received from the arguments
     fileName = malloc(strlen(argv[1])+1);
@@ -294,10 +294,7 @@ int main(int argc, char *argv[]){
 
     start = clock();
     while (fileSize > 0) {
-        printf("%d \n",blockSize);
         bytesRead = fread(buffer, 1, blockSize, fileToCompress); 
-        printf("%d \n",sizeof(buffer));
-        printf("%d \n",bytesRead);
         lzwdr(buffer, bytesRead, dictionary);
             
         fileSize -= bytesRead;
