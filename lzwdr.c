@@ -104,10 +104,11 @@ int searchInTrie(trieNode *dictionary, unsigned char *pattern, int length){
     Function to add a pattern code to the output string.
     @param code - the code to be inserted in the output.
     @param string - current output string.
+    @param lenght - length of the string.
     @return - output string with the added code.
 */
-char* output(int code, char* string){
-    string = realloc(string, sizeof(string) + 1);
+char* output(int code, char* string, int length){
+    string = realloc(string, length + 1 * sizeof(char));
     strcat(string, sprintf(string, "%d", code));
 
     return string;
@@ -116,17 +117,19 @@ char* output(int code, char* string){
 /*
     Function to concatenate patterns.
     @param patternA - pattern A.
+    @param lenghtA - length of pattern A.
     @param patternB - pattern B.
+    @param lenghtB - length of pattern B.
     @return - this function returns the concatenation of the two input patterns.
 */
-unsigned char* concat(unsigned char* patternA, unsigned char* patternB){
-    unsigned char* concatenation = malloc((sizeof(patternA) + sizeof(patternB)) * sizeof(unsigned char));
+unsigned char* concat(unsigned char* patternA, int lengthA, unsigned char* patternB, int lengthB){
+    unsigned char* concatenation = malloc((lengthA + lengthB) * sizeof(unsigned char));
     
     for(int i = 0; i < sizeof(patternA); i++){
         concatenation[i] = patternA[i];
     }
-    for (int i = 0; i < sizeof(patternB); i++) {
-        concatenation[i + sizeof(patternA)] = patternB[i];
+    for (int i = 0; i < lengthB; i++) {
+        concatenation[i + lengthA] = patternB[i];
     }
         
     return concatenation;
@@ -135,13 +138,14 @@ unsigned char* concat(unsigned char* patternA, unsigned char* patternB){
 /*
     Function to invert an array of unsigned char.
     @param originalArray - the array to be inverted.
+    @param lenght - length of the array to be inverted.
     @return - this function returns an unsigned char array with the inverted value of the originalArray.
 */
-unsigned char* reverse(unsigned char *originalArray) {
-    unsigned char* invertedArray = malloc(sizeof(originalArray) * sizeof(unsigned char));
+unsigned char* reverse(unsigned char *originalArray, int lenght) {
+    unsigned char* invertedArray = malloc(lenght * sizeof(unsigned char));
     
     for (int i = 0; i < sizeof(originalArray); i++) {
-        invertedArray[i] = originalArray[sizeof(originalArray) - 1 - i];
+        invertedArray[i] = originalArray[lenght - 1 - i];
     }
     
     return invertedArray;
