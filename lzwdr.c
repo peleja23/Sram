@@ -153,8 +153,8 @@ unsigned char* reverse(unsigned char *originalArray, int lenght) {
     @return - this function returns the output string after the block has been processed by the lzwdr algorithm.
 */
 char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
-    char* outputString = (char*)malloc(sizeof(char));
-    int sizeOfOutputString = 1;
+    char* outputString = (char*)malloc(sizeof(char) * 2);
+    int sizeOfOutputString = sizeof(char) * 2;
     unsigned char* patternA = malloc(sizeof(unsigned char));
     unsigned char* patternB  = malloc(sizeof(unsigned char));
     int sizeOfPatternA = sizeof(unsigned char);
