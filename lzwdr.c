@@ -232,8 +232,6 @@ int main(int argc, char *argv[]){
     long fileSize;
     size_t bytesRead;
     clock_t start, end;
-    unsigned char *patternA;
-    unsigned char *patternB;
     char* fileName;
     char* blockComparator;
     char* sizeAux;
