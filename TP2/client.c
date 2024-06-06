@@ -1,14 +1,77 @@
 #include <winsock2.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-int main(int argc, char *argv[]){
+#define PORT 5555
+#define MAX_BUFFER 65536  // Podemos ter de aumentar se necessário
+#define DIGIT_IMAGE_SIZE 4096  // Define an appropriate size for the image data
 
-    char *ip ="127.0.0.1";
-    int port = 5555;
+typedef struct {
+    int A;      // Campo de controle
+    int F;      // Campo de precisão
+    char digitImages[8][DIGIT_IMAGE_SIZE];  // Array to hold the image data for the digits
+} PDU;
 
-    int sockfd;
+void saveImage(const char* filename, char* buffer, int bufferSize) {
+    FILE* file = fopen(filename, "wb");
+    if (file == NULL) {
+        perror("Error opening image file");
+        exit(1);
+    }
+    fwrite(buffer, 1, bufferSize, file);
+    fclose(file);
+}
 
+void receiveData(){
+    WSADATA wsaData;
+    SOCKET sock;
+    struct sockaddr_in server, client;
+    PDU pdu;
+    int clientLen = sizeof(client);
 
-    return 0;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        printf("WSAStartup failed. Error Code : %d\n", WSAGetLastError());
+        return;
+    }
+
+    if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET) {
+        printf("Could not create socket : %d\n", WSAGetLastError());
+        WSACleanup();
+        return;
+    }
+
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(PORT);
+
+    if (bind(sock, (struct sockaddr *)&server, sizeof(server)) == SOCKET_ERROR) {
+        printf("Bind failed with error code : %d\n", WSAGetLastError());
+        closesocket(sock);
+        WSACleanup();
+        return;
+    }
+
+    while(1) {
+        if (recvfrom(sock, (char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&client, &clientLen) == SOCKET_ERROR) {
+            printf("recvfrom() failed with error code : %d\n", WSAGetLastError());
+            break;
+        }
+
+        printf("A: %d, F: %d\n", pdu.A, pdu.F);
+
+        // Save each digit image to disk
+        for (int i = 0; i < 8 + pdu.F ; i++) {
+            char filename[20];
+            sprintf(filename, "digit_%d.png", i);
+            saveImage(filename, pdu.digitImages[i], DIGIT_IMAGE_SIZE);
+        }
+    }
+
+    closesocket(sock);
+    WSACleanup();
+}
+
+int main(int argc, char* argv[]) {
+    receiveData();
 }
