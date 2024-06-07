@@ -10,7 +10,7 @@
 typedef struct {
     int A;      // Campo de controle
     int F;      // Campo de precisão
-    char digitImages[8][DIGIT_IMAGE_SIZE];  // Array to hold the image data for the digits
+    char digitImages[12][DIGIT_IMAGE_SIZE];  // Array to hold the image data for the digits
 } PDU;
 
 void saveImage(const char* filename, char* buffer, int bufferSize) {
@@ -30,17 +30,8 @@ void receiveData(){
     PDU pdu;
     int clientLen = sizeof(client);
 
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        printf("WSAStartup failed. Error Code : %d\n", WSAGetLastError());
-        return;
-    }
-
-    if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET) {
-        printf("Could not create socket : %d\n", WSAGetLastError());
-        WSACleanup();
-        return;
-    }
-
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+    sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(PORT);
@@ -54,9 +45,9 @@ void receiveData(){
 
     while(1) {
         recvfrom(sock, (char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&client, &clientLen);
-        printf("A: %d, F: %d\n", pdu.A, pdu.F);
+        printf("A: %d, F: %d \n", pdu.A, pdu.F);
         // Save each digit image to disk
-        for (int i = 0; i < 8 + pdu.F ; i++) {
+        for (int i = 0; i < 9 + pdu.F ; i++) {
             char filename[20];
             sprintf(filename, "digit_%d.png", i);
             saveImage(filename, pdu.digitImages[i], DIGIT_IMAGE_SIZE);

@@ -12,7 +12,7 @@
 typedef struct {
     int A;     
     int F;     
-    char digitImages[8][DIGIT_IMAGE_SIZE];  
+    char digitImages[12][DIGIT_IMAGE_SIZE];  
 } PDU;
 
 char* digitFiles[] = {
@@ -75,8 +75,9 @@ void preparePDU(PDU* pdu, int F, int A) {
     pdu->F = F;
     char timestamp[MAX_BUFFER];
     generateTimeString(F, timestamp);
+    printf("%s\n", timestamp);
     int imageIndex = 0;
-    for (int i = 0; i < strlen(timestamp) && imageIndex < 8 + F; i++) {
+    for (int i = 0; i < strlen(timestamp) && imageIndex <= (9 + F); i++) {
         if (timestamp[i] == ':') {
             loadImage(separatorFile, pdu->digitImages[imageIndex], DIGIT_IMAGE_SIZE);
         } else {
@@ -103,7 +104,6 @@ void sendData(int F, int A) {
 
     while(1) {
         preparePDU(&pdu, F, A); 
-        printf("%i \n",&pdu);
         sendto(udpSocket, (const char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));      
         struct timespec ts;
         ts.tv_sec = interval / 1000000;
