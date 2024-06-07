@@ -53,13 +53,8 @@ void receiveData(){
     }
 
     while(1) {
-        if (recvfrom(sock, (char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&client, &clientLen) == SOCKET_ERROR) {
-            printf("recvfrom() failed with error code : %d\n", WSAGetLastError());
-            break;
-        }
-
+        recvfrom(sock, (char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&client, &clientLen);
         printf("A: %d, F: %d\n", pdu.A, pdu.F);
-
         // Save each digit image to disk
         for (int i = 0; i < 8 + pdu.F ; i++) {
             char filename[20];

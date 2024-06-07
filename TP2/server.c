@@ -95,26 +95,16 @@ void sendData(int F, int A) {
     struct sockaddr_in server;
     PDU pdu;
     int interval = pow(10, -F) * 1000000;
-    if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) {
-        printf("WSAStartup failed. Error Code : %d\n", WSAGetLastError());
-        return;
-    }
+    WSAStartup(MAKEWORD(2,2), &wsa);
     udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (udpSocket == INVALID_SOCKET) {
-        printf("Could not create socket : %d\n", WSAGetLastError());
-        WSACleanup();
-        return;
-    }
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr("127.0.0.1");
     server.sin_port = htons(PORT);
 
     while(1) {
         preparePDU(&pdu, F, A); 
-        if (sendto(udpSocket, (const char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server)) == SOCKET_ERROR) {
-            printf("sendto() failed with error code : %d\n", WSAGetLastError());
-            break;
-        }       
+        printf("%i \n",&pdu);
+        sendto(udpSocket, (const char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));      
         struct timespec ts;
         ts.tv_sec = interval / 1000000;
         ts.tv_nsec = (interval % 1000000) * 1000;
