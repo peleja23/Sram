@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <windows.h>
 
 #define PORT 5555
 #define MAX_BUFFER 65536
@@ -23,43 +24,34 @@ char* digitFiles[] = {
 };
 const char* separatorFile = "digitos/separador.png";
 
+char digitImageBuffers[10][DIGIT_IMAGE_SIZE];
+char separatorImageBuffer[DIGIT_IMAGE_SIZE];
+
 void generateTimeString(int F, char* buffer) {
-    struct timespec ts;
-    struct tm* timeinfo;
-
-    clock_gettime(CLOCK_REALTIME, &ts);
-    timeinfo = localtime(&ts.tv_sec);
-
-    int ms = ts.tv_nsec / 1000000;      // Milissegundos
-    int ds = ms / 100;                  // Décimos de segundo
-    int cs = ms / 10;                   // Centésimos de segundo
-    int us = ts.tv_nsec / 1000;         // Microssegundos
-    int ns = ts.tv_nsec;                // Nanossegundos
+    SYSTEMTIME st;
+    GetSystemTime(&st);
 
     switch (F) {
         case 0:
-            sprintf(buffer, "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+            sprintf(buffer, "%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond);
             break;
         case 1:
-            sprintf(buffer, "%02d:%02d:%02d:%01d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, ds % 10);
+            sprintf(buffer, "%02d:%02d:%02d:%01d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds / 100);
             break;
         case 2:
-            sprintf(buffer, "%02d:%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, cs % 100);
+            sprintf(buffer, "%02d:%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds / 10);
             break;
         case 3:
-            sprintf(buffer, "%02d:%02d:%02d:%03d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, ms);
+            sprintf(buffer, "%02d:%02d:%02d:%03d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
             break;
         case 4:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%01d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, ms, us % 10);
+            sprintf(buffer, "%02d:%02d:%02d:%03d%01d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, (st.wMilliseconds / 10) % 10);
             break;
         case 5:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, ms, us % 100);
+            sprintf(buffer, "%02d:%02d:%02d:%03d%02d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, (st.wMilliseconds % 100));
             break;
         case 6:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%03d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, ms, us);
-            break;
-        case 7:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%03d%03d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, ms, us, ns % 1000);
+            sprintf(buffer, "%02d:%02d:%02d:%03d%03d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, (st.wMilliseconds % 1000));
             break;
     }
 }
@@ -68,6 +60,13 @@ void loadImage(const char* filename, char* buffer, int bufferSize) {
     FILE* file = fopen(filename, "rb");
     size_t bytesRead = fread(buffer, 1, bufferSize, file);
     fclose(file);
+}
+
+void preloadImages() {
+    for (int i = 0; i < 10; i++) {
+        loadImage(digitFiles[i], digitImageBuffers[i], DIGIT_IMAGE_SIZE);
+    }
+    loadImage(separatorFile, separatorImageBuffer, DIGIT_IMAGE_SIZE);
 }
 
 void preparePDU(PDU* pdu, int F, int A) {
@@ -79,11 +78,11 @@ void preparePDU(PDU* pdu, int F, int A) {
     int imageIndex = 0;
     for (int i = 0; i < strlen(timestamp) && imageIndex <= (9 + F); i++) {
         if (timestamp[i] == ':') {
-            loadImage(separatorFile, pdu->digitImages[imageIndex], DIGIT_IMAGE_SIZE);
+            memcpy(pdu->digitImages[imageIndex], separatorImageBuffer, DIGIT_IMAGE_SIZE);
         } else {
             int digit = timestamp[i] - '0';
             if (digit >= 0 && digit <= 9) {
-                loadImage(digitFiles[digit], pdu->digitImages[imageIndex], DIGIT_IMAGE_SIZE);
+                memcpy(pdu->digitImages[imageIndex], digitImageBuffers[digit], DIGIT_IMAGE_SIZE);
             }
         }
         imageIndex++;
@@ -95,27 +94,29 @@ void sendData(int F, int A) {
     SOCKET udpSocket;
     struct sockaddr_in server;
     PDU pdu;
-    int interval = pow(10, -F) * 1000000;
     WSAStartup(MAKEWORD(2,2), &wsa);
     udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr("127.0.0.1");
     server.sin_port = htons(PORT);
 
-    while(1) {
-        preparePDU(&pdu, F, A); 
-        sendto(udpSocket, (const char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));      
-        struct timespec ts;
-        ts.tv_sec = interval / 1000000;
-        ts.tv_nsec = (interval % 1000000) * 1000;
-        nanosleep(&ts, NULL);
-    }
+    char previousTimestamp[MAX_BUFFER] = {0};
+    char currentTimestamp[MAX_BUFFER];
 
+    while (1) {
+        generateTimeString(F, currentTimestamp);
+        if (strcmp(previousTimestamp, currentTimestamp) != 0) {
+            preparePDU(&pdu, F, A); 
+            sendto(udpSocket, (const char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));
+            strcpy(previousTimestamp, currentTimestamp);
+        }
+    }
     closesocket(udpSocket);
     WSACleanup();
 }
 
 int main(int argc, char* argv[]) {
+    preloadImages();
     int F = 0;
     int A = 2; 
     if (argc > 1) {
