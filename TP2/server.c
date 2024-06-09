@@ -8,12 +8,12 @@
 
 #define PORT 5555
 #define MAX_BUFFER 65536
-#define DIGIT_IMAGE_SIZE 4096  
+#define DIGIT_IMAGE_SIZE 2145  
 
 typedef struct {
     int A;     
     int F;     
-    char digitImages[12][DIGIT_IMAGE_SIZE];  
+    char digitImages[16][DIGIT_IMAGE_SIZE];  
 } PDU;
 
 char* digitFiles[] = {
@@ -27,35 +27,47 @@ const char* separatorFile = "digitos/separador.png";
 char digitImageBuffers[10][DIGIT_IMAGE_SIZE];
 char separatorImageBuffer[DIGIT_IMAGE_SIZE];
 
+void getHighPrecisionTime(double* seconds) {
+    LARGE_INTEGER frequency;
+    LARGE_INTEGER counter;
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&counter);
+    *seconds = (double)counter.QuadPart / frequency.QuadPart;
+}
+
 void generateTimeString(int F, char* buffer) {
     SYSTEMTIME st;
     GetSystemTime(&st);
+    
+    double highPrecisionSeconds;
+    getHighPrecisionTime(&highPrecisionSeconds);
+    
+    int microseconds = (int)((highPrecisionSeconds - (int)highPrecisionSeconds) * 1e6);
 
     switch (F) {
         case 0:
             sprintf(buffer, "%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond);
             break;
         case 1:
-            sprintf(buffer, "%02d:%02d:%02d:%01d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds / 100);
+            sprintf(buffer, "%02d:%02d:%02d:%01d", st.wHour, st.wMinute, st.wSecond, microseconds / 100000);
             break;
         case 2:
-            sprintf(buffer, "%02d:%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds / 10);
+            sprintf(buffer, "%02d:%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond, microseconds / 10000);
             break;
         case 3:
-            sprintf(buffer, "%02d:%02d:%02d:%03d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+            sprintf(buffer, "%02d:%02d:%02d:%03d", st.wHour, st.wMinute, st.wSecond, microseconds / 1000);
             break;
         case 4:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%01d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, (st.wMilliseconds / 10) % 10);
+            sprintf(buffer, "%02d:%02d:%02d:%04d", st.wHour, st.wMinute, st.wSecond, microseconds / 100);
             break;
         case 5:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%02d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, (st.wMilliseconds % 100));
+            sprintf(buffer, "%02d:%02d:%02d:%05d", st.wHour, st.wMinute, st.wSecond, microseconds / 10);
             break;
         case 6:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%03d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, (st.wMilliseconds % 1000));
+            sprintf(buffer, "%02d:%02d:%02d:%06d", st.wHour, st.wMinute, st.wSecond, microseconds);
             break;
     }
 }
-
 void loadImage(const char* filename, char* buffer, int bufferSize) {
     FILE* file = fopen(filename, "rb");
     size_t bytesRead = fread(buffer, 1, bufferSize, file);
