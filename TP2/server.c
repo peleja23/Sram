@@ -1,10 +1,9 @@
-#include <winsock2.h>
 #include <stdio.h>
-#include <time.h>
-#include <string.h>
-#include <math.h>
 #include <stdlib.h>
-#include <windows.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <time.h>
 
 #define PORT 5555
 #define MAX_BUFFER 65536
@@ -27,47 +26,39 @@ const char* separatorFile = "digitos/separador.png";
 char digitImageBuffers[10][DIGIT_IMAGE_SIZE];
 char separatorImageBuffer[DIGIT_IMAGE_SIZE];
 
-void getHighPrecisionTime(double* seconds) {
-    LARGE_INTEGER frequency;
-    LARGE_INTEGER counter;
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&counter);
-    *seconds = (double)counter.QuadPart / frequency.QuadPart;
-}
-
 void generateTimeString(int F, char* buffer) {
-    SYSTEMTIME st;
-    GetSystemTime(&st);
-    
-    double highPrecisionSeconds;
-    getHighPrecisionTime(&highPrecisionSeconds);
-    
-    int microseconds = (int)((highPrecisionSeconds - (int)highPrecisionSeconds) * 1e6);
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+
+    struct tm *tm_info = localtime(&ts.tv_sec);
+
+    int microseconds = ts.tv_nsec / 1000;
 
     switch (F) {
         case 0:
-            sprintf(buffer, "%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond);
+            sprintf(buffer, "%02d:%02d:%02d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
             break;
         case 1:
-            sprintf(buffer, "%02d:%02d:%02d:%01d", st.wHour, st.wMinute, st.wSecond, microseconds / 100000);
+            sprintf(buffer, "%02d:%02d:%02d:%01d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 100000);
             break;
         case 2:
-            sprintf(buffer, "%02d:%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond, microseconds / 10000);
+            sprintf(buffer, "%02d:%02d:%02d:%02d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 10000);
             break;
         case 3:
-            sprintf(buffer, "%02d:%02d:%02d:%03d", st.wHour, st.wMinute, st.wSecond, microseconds / 1000);
+            sprintf(buffer, "%02d:%02d:%02d:%03d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 1000);
             break;
         case 4:
-            sprintf(buffer, "%02d:%02d:%02d:%04d", st.wHour, st.wMinute, st.wSecond, microseconds / 100);
+            sprintf(buffer, "%02d:%02d:%02d:%04d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 100);
             break;
         case 5:
-            sprintf(buffer, "%02d:%02d:%02d:%05d", st.wHour, st.wMinute, st.wSecond, microseconds / 10);
+            sprintf(buffer, "%02d:%02d:%02d:%05d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 10);
             break;
         case 6:
-            sprintf(buffer, "%02d:%02d:%02d:%06d", st.wHour, st.wMinute, st.wSecond, microseconds);
+            sprintf(buffer, "%02d:%02d:%02d:%06d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds);
             break;
     }
 }
+
 void loadImage(const char* filename, char* buffer, int bufferSize) {
     FILE* file = fopen(filename, "rb");
     size_t bytesRead = fread(buffer, 1, bufferSize, file);
@@ -102,12 +93,16 @@ void preparePDU(PDU* pdu, int F, int A) {
 }
 
 void sendData(int F, int A) {
-    WSADATA wsa;
-    SOCKET udpSocket;
+    int udpSocket;
     struct sockaddr_in server;
     PDU pdu;
-    WSAStartup(MAKEWORD(2,2), &wsa);
-    udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+    udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udpSocket < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr("127.0.0.1");
     server.sin_port = htons(PORT);
@@ -119,12 +114,12 @@ void sendData(int F, int A) {
         generateTimeString(F, currentTimestamp);
         if (strcmp(previousTimestamp, currentTimestamp) != 0) {
             preparePDU(&pdu, F, A); 
-            sendto(udpSocket, (const char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));
+            sendto(udpSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));
             strcpy(previousTimestamp, currentTimestamp);
         }
     }
-    closesocket(udpSocket);
-    WSACleanup();
+
+    close(udpSocket);
 }
 
 int main(int argc, char* argv[]) {
@@ -138,4 +133,5 @@ int main(int argc, char* argv[]) {
         A = atoi(argv[2]);
     }
     sendData(F, A);
+    return 0;
 }

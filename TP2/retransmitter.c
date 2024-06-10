@@ -1,8 +1,8 @@
-#include <winsock2.h>
-#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 #include <time.h>
 
 #define RECEIVE_PORT 5555
@@ -25,34 +25,27 @@ void error(const char *msg) {
 }
 
 void reencaminhar() {
-    WSADATA wsa;
-    SOCKET recvSocket, sendSocket;
+    int recvSocket, sendSocket;
     struct sockaddr_in recvAddr, sendAddr, clientAddr;
-    int recvLen, clientLen = sizeof(clientAddr);
+    socklen_t clientLen = sizeof(clientAddr);
     PDU pdu;
     int frameCount = 0;
 
-    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        error("WSAStartup failed");
-    }
-
-    // Configuração do socket de recebimento
-    recvSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (recvSocket == INVALID_SOCKET) {
-        error("Erro ao criar socket de recebimento");
+    recvSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (recvSocket < 0) {
+        error("Error creating receive socket");
     }
     recvAddr.sin_family = AF_INET;
     recvAddr.sin_addr.s_addr = INADDR_ANY;
     recvAddr.sin_port = htons(RECEIVE_PORT);
 
-    if (bind(recvSocket, (struct sockaddr *)&recvAddr, sizeof(recvAddr)) == SOCKET_ERROR) {
-        error("Erro ao fazer bind do socket de recebimento");
+    if (bind(recvSocket, (struct sockaddr *)&recvAddr, sizeof(recvAddr)) < 0) {
+        error("Error binding receive socket");
     }
 
-    // Configuração do socket de envio
-    sendSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sendSocket == INVALID_SOCKET) {
-        error("Erro ao criar socket de envio");
+    sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sendSocket < 0) {
+        error("Error creating send socket");
     }
     sendAddr.sin_family = AF_INET;
     sendAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
@@ -61,17 +54,17 @@ void reencaminhar() {
     while (1) {
         printf("Waiting for data...\n"); // Debugging print
 
-        // Recebe PDU do servidor
-        recvLen = recvfrom(recvSocket, (char *)&pdu, sizeof(PDU), 0, (struct sockaddr *)&clientAddr, &clientLen);
-        if (recvLen == SOCKET_ERROR) {
-            error("Erro ao receber dados");
+        // Receives PDU from server
+        int recvLen = recvfrom(recvSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&clientAddr, &clientLen);
+        if (recvLen < 0) {
+            error("Error receiving data");
         }
 
         printf("Received PDU: A=%d, F=%d\n", pdu.A, pdu.F); // Debugging print
 
         frameCount++;
 
-        // Ignora um PDU a cada M segundos
+        // Ignores a PDU every M seconds
         time_t currentIgnoreTime = time(NULL);
         if (difftime(currentIgnoreTime, lastIgnoreTime) >= M) {
             lastIgnoreTime = currentIgnoreTime;
@@ -79,25 +72,24 @@ void reencaminhar() {
             continue; // Skip sending this PDU
         }
 
-        // Envia o PDU para o cliente
-        int sendLen = sendto(sendSocket, (const char *)&pdu, sizeof(PDU), 0, (struct sockaddr *)&sendAddr, sizeof(sendAddr));
-        if (sendLen == SOCKET_ERROR) {
-            error("Erro ao enviar dados");
+        // Sends the PDU to the client
+        int sendLen = sendto(sendSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&sendAddr, sizeof(sendAddr));
+        if (sendLen < 0) {
+            error("Error sending data");
         }
 
         printf("Sent PDU to client\n"); // Debugging print
 
-        // Pausa a cada N frames
+        // Pauses every N frames
         if (frameCount >= N) {
             printf("Sleeping for %d seconds...\n", P); // Debugging print
-            Sleep(P * 1000);
+            sleep(P);
             frameCount = 0; // Reset the frame counter after sleeping
         }
     }
 
-    closesocket(recvSocket);
-    closesocket(sendSocket);
-    WSACleanup();
+    close(recvSocket);
+    close(sendSocket);
 }
 
 int main(int argc, char* argv[]) {
