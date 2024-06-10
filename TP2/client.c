@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PORT 5555
+#define PORT 5556
 #define MAX_BUFFER 65536  // Podemos ter de aumentar se necessário
 #define DIGIT_IMAGE_SIZE 2145   // Define an appropriate size for the image data
 
