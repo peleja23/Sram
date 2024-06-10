@@ -1,19 +1,18 @@
-#include <winsock2.h>
 #include <stdio.h>
-#include <time.h>
-#include <string.h>
-#include <math.h>
 #include <stdlib.h>
-#include <windows.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <time.h>
 
 #define PORT 5555
 #define MAX_BUFFER 65536
-#define DIGIT_IMAGE_SIZE 4096  
+#define DIGIT_IMAGE_SIZE 2145  
 
 typedef struct {
     int A;     
     int F;     
-    char digitImages[12][DIGIT_IMAGE_SIZE];  
+    char digitImages[16][DIGIT_IMAGE_SIZE];  
 } PDU;
 
 char* digitFiles[] = {
@@ -28,30 +27,34 @@ char digitImageBuffers[10][DIGIT_IMAGE_SIZE];
 char separatorImageBuffer[DIGIT_IMAGE_SIZE];
 
 void generateTimeString(int F, char* buffer) {
-    SYSTEMTIME st;
-    GetSystemTime(&st);
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+
+    struct tm *tm_info = localtime(&ts.tv_sec);
+
+    int microseconds = ts.tv_nsec / 1000;
 
     switch (F) {
         case 0:
-            sprintf(buffer, "%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond);
+            sprintf(buffer, "%02d:%02d:%02d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
             break;
         case 1:
-            sprintf(buffer, "%02d:%02d:%02d:%01d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds / 100);
+            sprintf(buffer, "%02d:%02d:%02d:%01d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 100000);
             break;
         case 2:
-            sprintf(buffer, "%02d:%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds / 10);
+            sprintf(buffer, "%02d:%02d:%02d:%02d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 10000);
             break;
         case 3:
-            sprintf(buffer, "%02d:%02d:%02d:%03d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+            sprintf(buffer, "%02d:%02d:%02d:%03d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 1000);
             break;
         case 4:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%01d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, (st.wMilliseconds / 10) % 10);
+            sprintf(buffer, "%02d:%02d:%02d:%04d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 100);
             break;
         case 5:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%02d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, (st.wMilliseconds % 100));
+            sprintf(buffer, "%02d:%02d:%02d:%05d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds / 10);
             break;
         case 6:
-            sprintf(buffer, "%02d:%02d:%02d:%03d%03d", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, (st.wMilliseconds % 1000));
+            sprintf(buffer, "%02d:%02d:%02d:%06d", tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec, microseconds);
             break;
     }
 }
@@ -90,12 +93,16 @@ void preparePDU(PDU* pdu, int F, int A) {
 }
 
 void sendData(int F, int A) {
-    WSADATA wsa;
-    SOCKET udpSocket;
+    int udpSocket;
     struct sockaddr_in server;
     PDU pdu;
-    WSAStartup(MAKEWORD(2,2), &wsa);
-    udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+    udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udpSocket < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr("127.0.0.1");
     server.sin_port = htons(PORT);
@@ -107,12 +114,12 @@ void sendData(int F, int A) {
         generateTimeString(F, currentTimestamp);
         if (strcmp(previousTimestamp, currentTimestamp) != 0) {
             preparePDU(&pdu, F, A); 
-            sendto(udpSocket, (const char*)&pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));
+            sendto(udpSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));
             strcpy(previousTimestamp, currentTimestamp);
         }
     }
-    closesocket(udpSocket);
-    WSACleanup();
+
+    close(udpSocket);
 }
 
 int main(int argc, char* argv[]) {
@@ -126,4 +133,5 @@ int main(int argc, char* argv[]) {
         A = atoi(argv[2]);
     }
     sendData(F, A);
+    return 0;
 }
