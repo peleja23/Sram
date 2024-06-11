@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <pthread.h>
 
 #define RECEIVE_PORT 5555
 #define SEND_PORT 5556
@@ -19,82 +20,84 @@ typedef struct {
 int N, P, M;
 time_t lastIgnoreTime;
 
-void error(const char *msg) {
-    perror(msg);
-    exit(1);
-}
+pthread_mutex_t lock;
+pthread_cond_t cond;
 
-void reencaminhar() {
-    int recvSocket, sendSocket;
-    struct sockaddr_in recvAddr, sendAddr, clientAddr;
+PDU pduBuffer;
+int bufferReady = 0;
+
+
+void* receive_data(void* arg) {
+    int recvSocket;
+    struct sockaddr_in recvAddr, clientAddr;
     socklen_t clientLen = sizeof(clientAddr);
-    PDU pdu;
-    int frameCount = 0;
 
     recvSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (recvSocket < 0) {
-        error("Error creating receive socket");
-    }
     recvAddr.sin_family = AF_INET;
     recvAddr.sin_addr.s_addr = INADDR_ANY;
     recvAddr.sin_port = htons(RECEIVE_PORT);
 
-    if (bind(recvSocket, (struct sockaddr *)&recvAddr, sizeof(recvAddr)) < 0) {
-        error("Error binding receive socket");
+    bind(recvSocket, (struct sockaddr *)&recvAddr, sizeof(recvAddr));
+
+    while (1) {
+        printf("[Receiver] Waiting for data...\n");
+
+        recvfrom(recvSocket, &pduBuffer, sizeof(PDU), 0, (struct sockaddr *)&clientAddr, &clientLen);
+        pthread_mutex_lock(&lock);
+        bufferReady = 1;
+        pthread_cond_signal(&cond);
+        pthread_mutex_unlock(&lock);
     }
 
+    close(recvSocket);
+    return NULL;
+}
+
+void* send_data(void* arg) {
+    int sendSocket;
+    struct sockaddr_in sendAddr;
+    int frameCount = 0;
+
     sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sendSocket < 0) {
-        error("Error creating send socket");
-    }
     sendAddr.sin_family = AF_INET;
     sendAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     sendAddr.sin_port = htons(SEND_PORT);
 
     while (1) {
-        printf("Waiting for data...\n"); // Debugging print
-
-        // Receives PDU from server
-        int recvLen = recvfrom(recvSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&clientAddr, &clientLen);
-        if (recvLen < 0) {
-            error("Error receiving data");
+        pthread_mutex_lock(&lock);
+        while (!bufferReady) {
+            pthread_cond_wait(&cond, &lock);
         }
-
-        printf("Received PDU: A=%d, F=%d\n", pdu.A, pdu.F); // Debugging print
-
-        frameCount++;
 
         // Ignores a PDU every M seconds
         time_t currentIgnoreTime = time(NULL);
         if (difftime(currentIgnoreTime, lastIgnoreTime) >= M) {
             lastIgnoreTime = currentIgnoreTime;
-            printf("Ignoring PDU due to time condition\n"); // Debugging print
-            continue; // Skip sending this PDU
+            bufferReady = 0;
+            printf("[Sender] Ignoring PDU due to time condition\n");
+            pthread_mutex_unlock(&lock);
+            continue;
         }
+        sendto(sendSocket, &pduBuffer, sizeof(PDU), 0, (struct sockaddr *)&sendAddr, sizeof(sendAddr));
 
-        // Sends the PDU to the client
-        int sendLen = sendto(sendSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&sendAddr, sizeof(sendAddr));
-        if (sendLen < 0) {
-            error("Error sending data");
-        }
+        frameCount++;
 
-        printf("Sent PDU to client\n"); // Debugging print
+        bufferReady = 0;
+        pthread_mutex_unlock(&lock);
 
-        // Pauses every N frames
         if (frameCount >= N) {
-            printf("Sleeping for %d seconds...\n", P); // Debugging print
+            printf("[Sender] Sleeping for %d seconds...\n", P);
             sleep(P);
-            frameCount = 0; // Reset the frame counter after sleeping
+            frameCount = 0;
         }
     }
 
-    close(recvSocket);
     close(sendSocket);
+    return NULL;
 }
 
 int main(int argc, char* argv[]) {
-    // Assign global variables
-    M = 20;
+    M = 15;
     N = 10;
     P = 5;
     if (argc > 1) {
@@ -107,10 +110,21 @@ int main(int argc, char* argv[]) {
         P = atoi(argv[3]);
     }
 
-    // Initialize lastIgnoreTime to the current time
     lastIgnoreTime = time(NULL);
 
-    reencaminhar();
+    pthread_t recvThread, sendThread;
+    pthread_mutex_init(&lock, NULL);
+    pthread_cond_init(&cond, NULL);
+
+    int recvThreadStatus = pthread_create(&recvThread, NULL, receive_data, NULL);
+
+    int sendThreadStatus = pthread_create(&sendThread, NULL, send_data, NULL);
+
+    pthread_join(recvThread, NULL);
+    pthread_join(sendThread, NULL);
+
+    pthread_mutex_destroy(&lock);
+    pthread_cond_destroy(&cond);
 
     return 0;
 }
