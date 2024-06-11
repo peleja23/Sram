@@ -105,7 +105,7 @@ int search(unsigned char *pattern, int length, trieNode *dictionary){
 */
 char* output(int code, char* string, int length){
     sprintf(string, strcat(string,"%d"), code);
-
+    printf("%d\n", code);
     return string;
 }
 
@@ -153,10 +153,10 @@ unsigned char* reverse(unsigned char *originalArray, int lenght) {
     @return - this function returns the output string after the block has been processed by the lzwdr algorithm.
 */
 char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
-    char* outputString = (char*)malloc(sizeof(char) * 2);
-    int sizeOfOutputString = sizeof(char) * 2;
-    unsigned char* patternA = malloc(sizeof(unsigned char));
-    unsigned char* patternB  = malloc(sizeof(unsigned char));
+    char* outputString = (char*)malloc(blockSize * sizeof(char) * 1);
+    int sizeOfOutputString = sizeof(char) * 1;
+    unsigned char* patternA = (unsigned char)malloc(blockSize * sizeof(unsigned char));
+    unsigned char* patternB  = (unsigned char)malloc(blockSize * sizeof(unsigned char));
     int sizeOfPatternA = sizeof(unsigned char);
     int sizeOfPatternB = sizeof(unsigned char);
     int code = 0;
@@ -169,45 +169,40 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
         //Processing block to find the bigger patternB after patternA already in D.
         code = search(&patternA, sizeOfPatternA, dictionary);
         patternB = block[index];
-
         while(search(concat(&patternB, sizeOfPatternB, &block[index+i], 1), sizeOfPatternB + 1, dictionary) != 0) {
-            printf("teste");
+            printf("teste4 \n");
             unsigned char* aux = concat(&patternB, sizeOfPatternB, block[index+i], sizeof(unsigned char));
-            patternB = realloc(patternB, sizeOfPatternB + 1);
             patternB = aux;
             i = i + 1;
         }
 
         //Send the code of patternA to the output. 
         outputString = output(code, &outputString, sizeOfOutputString);
-   
         sizeOfOutputString++;
-        printf("teste \n");
-        outputString = realloc(outputString, sizeOfOutputString * sizeof(char));
-        printf("teste2 \n");
+
 
         //Insert in the dictionary all the new patterns while the dictionary is not full
         int j = 0;
         int t = sizeOfTheDictionary - 1;
         
         while(j <= i && t < sizeOfTheDictionary) {
+            printf("teste2 \n");
             t = insert(concat(&patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), &dictionary);
             if(t < sizeOfTheDictionary){
+                 printf("teste2 \n");
                  t = insert(reverse(concat(&patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char)),sizeOfPatternA + sizeof(unsigned char), &dictionary);
             }
         
             j++;
         }
-        
+        printf("teste3 \n");
         if(index + i > blockSize){
             output(search(&patternB, sizeOfPatternB, dictionary), outputString, sizeOfOutputString);
         } else{
             index = index + i;
-            patternA =  realloc(patternA,sizeOfPatternB);
             patternA = patternB;
             sizeOfPatternA = sizeOfPatternB;
             sizeOfPatternB = sizeof(unsigned char);
-            patternB = realloc(patternB, sizeOfPatternB);
         }
     }
         
@@ -220,8 +215,6 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
     argv[1] - name of the file that we need to compress.
     argv[2] - string value associated with the size of the block being utilized.
     argv[3] - string value associated with the maximum size of the dictionary.
-TODO   argv[4] - string value associated with the type of dictionary.
-TODO   argv[5] - string value associated with the dictionary management options.
 */
 int main(int argc, char *argv[]){
     trieNode * dictionary = NULL;
