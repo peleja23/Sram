@@ -74,7 +74,6 @@ void preloadImages() {
 }
 
 void preparePDU(PDU* pdu, int F, int A, int Framecount) {
-    Framecount = Framecount + 1;
     pdu->A = A;
     pdu->F = F;
     pdu->Framecount = Framecount;
@@ -116,6 +115,7 @@ void sendData(int F, int A, int Framecount) {
     while (1) {
         generateTimeString(F, currentTimestamp);
         if (strcmp(previousTimestamp, currentTimestamp) != 0) {
+            Framecount = Framecount + 1;
             preparePDU(&pdu, F, A, Framecount); 
             sendto(udpSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));
             strcpy(previousTimestamp, currentTimestamp);
