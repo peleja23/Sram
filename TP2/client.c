@@ -12,6 +12,7 @@
 typedef struct {
     int A;      // Control field
     int F;      // Precision field
+    int Framecount;  
     char digitImages[16][DIGIT_IMAGE_SIZE];  // Array to hold the image data for the digits
 } PDU;
 
@@ -43,9 +44,12 @@ void receiveData(){
         exit(EXIT_FAILURE);
     }
 
+    int count = 0;
     while(1) {
         recvfrom(sock, &pdu, sizeof(PDU), 0, (struct sockaddr *)&client, &clientLen);
-        printf("A: %d, F: %d \n", pdu.A, pdu.F);
+        count = count+1;
+        printf("Frame Number: %d ->", count);
+        printf("A: %d, F: %d, Frame Number Received: %d \n", pdu.A, pdu.F, pdu.Framecount);
         // Save each digit image to disk
         for (int i = 0; i < 9 + pdu.F; i++) {  // Ensure we do not exceed array bounds
             char filename[50];

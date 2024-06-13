@@ -14,6 +14,7 @@
 typedef struct {
     int A;
     int F;
+    int Framecount;  
     char digitImages[16][DIGIT_IMAGE_SIZE];
 } PDU;
 
@@ -23,9 +24,32 @@ time_t lastIgnoreTime;
 pthread_mutex_t lock;
 pthread_cond_t cond;
 
-PDU pduBuffer;
+typedef struct {
+    PDU* pdus;
+    int size;
+    int capacity;
+} PDUBuffer;
+
+PDUBuffer pduBuffer;
 int bufferReady = 0;
 
+void initPDUBuffer(PDUBuffer* buffer, int initialCapacity) {
+    buffer->pdus = (PDU*)malloc(sizeof(PDU) * initialCapacity);
+    buffer->size = 0;
+    buffer->capacity = initialCapacity;
+}
+
+void addPDUToBuffer(PDUBuffer* buffer, PDU* pdu) {
+    if (buffer->size >= buffer->capacity) {
+        buffer->capacity *= 2;
+        buffer->pdus = (PDU*)realloc(buffer->pdus, sizeof(PDU) * buffer->capacity);
+    }
+    buffer->pdus[buffer->size++] = *pdu;
+}
+
+void freePDUBuffer(PDUBuffer* buffer) {
+    free(buffer->pdus);
+}
 
 void* receive_data(void* arg) {
     int recvSocket;
@@ -40,10 +64,12 @@ void* receive_data(void* arg) {
     bind(recvSocket, (struct sockaddr *)&recvAddr, sizeof(recvAddr));
 
     while (1) {
+        PDU pdu;
         printf("[Receiver] Waiting for data...\n");
 
-        recvfrom(recvSocket, &pduBuffer, sizeof(PDU), 0, (struct sockaddr *)&clientAddr, &clientLen);
+        recvfrom(recvSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&clientAddr, &clientLen);
         pthread_mutex_lock(&lock);
+        addPDUToBuffer(&pduBuffer, &pdu);
         bufferReady = 1;
         pthread_cond_signal(&cond);
         pthread_mutex_unlock(&lock);
@@ -78,7 +104,11 @@ void* send_data(void* arg) {
             pthread_mutex_unlock(&lock);
             continue;
         }
-        sendto(sendSocket, &pduBuffer, sizeof(PDU), 0, (struct sockaddr *)&sendAddr, sizeof(sendAddr));
+
+        for (int i = 0; i < pduBuffer.size; ++i) {
+            sendto(sendSocket, &pduBuffer.pdus[i], sizeof(PDU), 0, (struct sockaddr *)&sendAddr, sizeof(sendAddr));
+        }
+        pduBuffer.size = 0; // Clear the buffer after sending
 
         frameCount++;
 
@@ -116,6 +146,8 @@ int main(int argc, char* argv[]) {
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init(&cond, NULL);
 
+    initPDUBuffer(&pduBuffer, 10);
+
     int recvThreadStatus = pthread_create(&recvThread, NULL, receive_data, NULL);
 
     int sendThreadStatus = pthread_create(&sendThread, NULL, send_data, NULL);
@@ -125,6 +157,7 @@ int main(int argc, char* argv[]) {
 
     pthread_mutex_destroy(&lock);
     pthread_cond_destroy(&cond);
+    freePDUBuffer(&pduBuffer);
 
     return 0;
 }

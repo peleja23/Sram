@@ -11,7 +11,8 @@
 
 typedef struct {
     int A;     
-    int F;     
+    int F;  
+    int Framecount;   
     char digitImages[16][DIGIT_IMAGE_SIZE];  
 } PDU;
 
@@ -72,9 +73,11 @@ void preloadImages() {
     loadImage(separatorFile, separatorImageBuffer, DIGIT_IMAGE_SIZE);
 }
 
-void preparePDU(PDU* pdu, int F, int A) {
+void preparePDU(PDU* pdu, int F, int A, int Framecount) {
+    Framecount = Framecount + 1;
     pdu->A = A;
     pdu->F = F;
+    pdu->Framecount = Framecount;
     char timestamp[MAX_BUFFER];
     generateTimeString(F, timestamp);
     printf("%s\n", timestamp);
@@ -92,7 +95,7 @@ void preparePDU(PDU* pdu, int F, int A) {
     }
 }
 
-void sendData(int F, int A) {
+void sendData(int F, int A, int Framecount) {
     int udpSocket;
     struct sockaddr_in server;
     PDU pdu;
@@ -113,7 +116,7 @@ void sendData(int F, int A) {
     while (1) {
         generateTimeString(F, currentTimestamp);
         if (strcmp(previousTimestamp, currentTimestamp) != 0) {
-            preparePDU(&pdu, F, A); 
+            preparePDU(&pdu, F, A, Framecount); 
             sendto(udpSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));
             strcpy(previousTimestamp, currentTimestamp);
         }
@@ -125,13 +128,14 @@ void sendData(int F, int A) {
 int main(int argc, char* argv[]) {
     preloadImages();
     int F = 0;
-    int A = 2; 
+    int A = 2;
+    int Framecount = 0; 
     if (argc > 1) {
         F = atoi(argv[1]);
     }
     if (argc > 2) {
         A = atoi(argv[2]);
     }
-    sendData(F, A);
+    sendData(F, A, Framecount);
     return 0;
 }
