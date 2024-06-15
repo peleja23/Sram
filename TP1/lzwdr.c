@@ -67,6 +67,11 @@ int insert(unsigned char *pattern, int length, trieNode **dictionary){
         return 0;
     } else {
         temporaryNode->indexOfPattern = indexOfPattern;
+        printf("Padrao adicionado: ");
+        for(int level = 0; level < length; level++){
+             printf("%c", pattern[level] );
+        }
+        printf(" - %d\n",temporaryNode->indexOfPattern);
         ++indexOfPattern;
         return  temporaryNode->indexOfPattern;
     }
@@ -126,6 +131,10 @@ unsigned char* concat(unsigned char* patternA, int lengthA, unsigned char* patte
     for (int i = 0; i < lengthB; i++) {
         concatenation[i + lengthA] = patternB[i];
     }
+    for(int i = 0; i < lengthA + lengthB; i++) {
+        printf("%c", concatenation[i]);
+    }
+    printf("\n");
     return concatenation;
 }
 
@@ -186,11 +195,11 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
         int t = sizeOfTheDictionary - 1;
         
         while(j <= i && t < sizeOfTheDictionary) {
-            printf("teste2 \n");
-            t = insert(concat(&patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), &dictionary);
+            printf("teste1 \n");
+            t = insert(concat(&patternA, sizeOfPatternA, &patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char), &dictionary);
             if(t < sizeOfTheDictionary){
                  printf("teste2 \n");
-                 t = insert(reverse(concat(&patternA, sizeOfPatternA, patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char)),sizeOfPatternA + sizeof(unsigned char), &dictionary);
+                 t = insert(reverse(concat(&patternA, sizeOfPatternA, &patternB[j], sizeof(unsigned char)), sizeOfPatternA + sizeof(unsigned char)),sizeOfPatternA + sizeof(unsigned char), &dictionary);
             }
         
             j++;
