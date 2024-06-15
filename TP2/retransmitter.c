@@ -24,7 +24,7 @@ PDU buffer[BUFFER_SIZE];
 int bufferIndex = 0;
 int N;  // Number of frames after which to pause
 int P;   // Pause duration in seconds
-int M;  // Interval in seconds to skip a PDU
+int M; // Interval in seconds to skip a PDU
 
 pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -107,7 +107,6 @@ void* retransmitToClient(void* arg) {
             sendto(sock, &pdu, sizeof(PDU), 0, (struct sockaddr *)&client, clientLen);
         } else {
             pthread_mutex_unlock(&bufferMutex);
-            usleep(10000);  // Sleep for 10ms to avoid busy waiting
         }
     }
 

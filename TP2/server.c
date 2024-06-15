@@ -81,7 +81,7 @@ void preparePDU(PDU* pdu, int F, int A, int Framecount) {
     generateTimeString(F, timestamp);
     printf("%s\n", timestamp);
     int imageIndex = 0;
-    for (int i = 0; i < strlen(timestamp) && imageIndex <= (9 + F); i++) {
+    for (int i = 0; i < strlen(timestamp); i++) {
         if (timestamp[i] == ':') {
             memcpy(pdu->digitImages[imageIndex], separatorImageBuffer, DIGIT_IMAGE_SIZE);
         } else {
