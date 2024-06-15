@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <math.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
@@ -41,9 +42,9 @@ SDL_Texture* loadTextureFromMemory(SDL_Renderer *renderer, const char *data, int
 
 void displayTimeFromPDU(PDU *pdu, SDL_Renderer *renderer, SDL_Texture **textures) {
     SDL_Rect dst;
-    dst.y = 100;
-    dst.w = 64;
-    dst.h = 64;
+    dst.y = 80;
+    dst.w = 40;
+    dst.h = 40;
 
     for (int i = 0; i < 16; i++) {
         if (textures[i] != NULL) {
@@ -54,7 +55,7 @@ void displayTimeFromPDU(PDU *pdu, SDL_Renderer *renderer, SDL_Texture **textures
             continue; // Continua se a textura for vazia ou nula
         }
 
-        dst.x = 100 + i * 64;
+        dst.x = 0 + i * 64;
         SDL_RenderCopy(renderer, textures[i], NULL, &dst);
     }
     SDL_RenderPresent(renderer);
@@ -64,7 +65,6 @@ int main() {
     int udpSocket;
     struct sockaddr_in clientAddr;
     PDU pdu;
-    int frameInterval;
     int bufferSize;
     int running = 1;
 
@@ -116,16 +116,8 @@ int main() {
         return 1;
     }
     printf("Parâmetros recebidos: F=%d, A=%d\n", pdu.F, pdu.A);
-    frameInterval = pdu.F;
-    bufferSize = pdu.A;
-
-    // Verifica os parâmetros F e A
-    if (frameInterval <= 0 || bufferSize <= 0) {
-        printf("Parâmetros F ou A inválidos. F e A devem ser maiores que zero.\n");
-        close(udpSocket);
-        return 1;
-    }
-
+    bufferSize = pow(10,pdu.F)*pdu.A;
+    printf("Buffer Size: %d ",bufferSize);
 
     while (running) {
         int n = recvfrom(udpSocket, &pdu, sizeof(PDU), 0, NULL, NULL);

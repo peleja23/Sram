@@ -11,7 +11,7 @@
 #define CLIENT_PORT 5556
 #define MAX_BUFFER 65536
 #define DIGIT_IMAGE_SIZE 2145
-#define BUFFER_SIZE 10000  // Adjust based on expected buffer needs
+#define BUFFER_SIZE 20000  // Adjust based on expected buffer needs
 
 typedef struct {
     int A;
@@ -21,18 +21,22 @@ typedef struct {
 } PDU;
 
 PDU buffer[BUFFER_SIZE];
-int bufferIndex = 0;
+int bufferHead = 0;
+int bufferTail = 0;
 int N;  // Number of frames after which to pause
-int P;   // Pause duration in seconds
-int M; // Interval in seconds to skip a PDU
+int P;  // Pause duration in seconds
+int M;  // Interval in seconds to skip a PDU
 
 pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t bufferNotEmpty = PTHREAD_COND_INITIALIZER;
+pthread_cond_t bufferNotFull = PTHREAD_COND_INITIALIZER;
 
 void* receiveFromServer(void* arg) {
     int sock;
     struct sockaddr_in server, client;
     PDU pdu;
     socklen_t clientLen = sizeof(client);
+    time_t lastSkipTime = time(NULL);
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -52,9 +56,22 @@ void* receiveFromServer(void* arg) {
 
     while (1) {
         recvfrom(sock, &pdu, sizeof(PDU), 0, (struct sockaddr *)&client, &clientLen);
+
+        time_t currentTime = time(NULL);
+        if (difftime(currentTime, lastSkipTime) >= M) {
+            printf("Skipping PDU due to M seconds interval...\n");
+            lastSkipTime = currentTime;
+            continue;  // Skip this PDU
+        }
+
         pthread_mutex_lock(&bufferMutex);
-        buffer[bufferIndex] = pdu;
-        bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
+        while ((bufferTail + 1) % BUFFER_SIZE == bufferHead) {
+            pthread_cond_wait(&bufferNotFull, &bufferMutex);
+        }
+        
+        buffer[bufferTail] = pdu;
+        bufferTail = (bufferTail + 1) % BUFFER_SIZE;
+        pthread_cond_signal(&bufferNotEmpty);
         pthread_mutex_unlock(&bufferMutex);
     }
 
@@ -67,8 +84,6 @@ void* retransmitToClient(void* arg) {
     struct sockaddr_in client;
     socklen_t clientLen = sizeof(client);
     int frameCount = 0;
-    time_t lastSkipTime = 0;
-    time_t startTime = time(NULL);
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -82,32 +97,25 @@ void* retransmitToClient(void* arg) {
 
     while (1) {
         pthread_mutex_lock(&bufferMutex);
-        if (bufferIndex > 0) {
-            PDU pdu = buffer[0];
-            memmove(buffer, buffer + 1, (BUFFER_SIZE - 1) * sizeof(PDU));
-            bufferIndex--;
-            pthread_mutex_unlock(&bufferMutex);
-
-            frameCount++;
-            printf("Retransmitting Frame Number: %d -> A: %d, F: %d, Framecount: %d\n",
-                   frameCount, pdu.A, pdu.F, pdu.Framecount);
-
-            if (frameCount % N == 0) {
-                printf("Pausing for %d seconds...\n", P);
-                sleep(P);
-            }
-
-            time_t currentTime = time(NULL);
-            if (difftime(currentTime, lastSkipTime) >= M) {
-                printf("Skipping PDU due to M seconds interval...\n");
-                lastSkipTime = currentTime;
-                continue;  // Skip this PDU
-            }
-
-            sendto(sock, &pdu, sizeof(PDU), 0, (struct sockaddr *)&client, clientLen);
-        } else {
-            pthread_mutex_unlock(&bufferMutex);
+        while (bufferHead == bufferTail) {
+            pthread_cond_wait(&bufferNotEmpty, &bufferMutex);
         }
+
+        PDU pdu = buffer[bufferHead];
+        bufferHead = (bufferHead + 1) % BUFFER_SIZE;
+        pthread_cond_signal(&bufferNotFull);
+        pthread_mutex_unlock(&bufferMutex);
+
+        frameCount++;
+        printf("Retransmitting Frame Number: %d -> A: %d, F: %d, Framecount: %d\n",
+               frameCount, pdu.A, pdu.F, pdu.Framecount);
+
+        if (frameCount % N == 0) {
+            printf("Pausing for %d seconds...\n", P);
+            sleep(P);
+        }
+
+        sendto(sock, &pdu, sizeof(PDU), 0, (struct sockaddr *)&client, clientLen);
     }
 
     close(sock);
@@ -115,9 +123,9 @@ void* retransmitToClient(void* arg) {
 }
 
 int main(int argc, char* argv[]) {
-    N = 10;  
-    P = 5;   
-    M = 15; 
+    N = 100;  
+    P = 3;   
+    M = 8; 
     if (argc > 1) {
         N = atoi(argv[1]);
     }

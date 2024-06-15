@@ -116,6 +116,7 @@ void sendData(int F, int A, int Framecount) {
         generateTimeString(F, currentTimestamp);
         if (strcmp(previousTimestamp, currentTimestamp) != 0) {
             Framecount = Framecount + 1;
+            printf("Frame: %d ->", Framecount);
             preparePDU(&pdu, F, A, Framecount); 
             sendto(udpSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&server, sizeof(server));
             strcpy(previousTimestamp, currentTimestamp);
