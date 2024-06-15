@@ -3,114 +3,139 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 #include <time.h>
+#include <pthread.h>
 
-#define RECEIVE_PORT 5555
-#define SEND_PORT 5556
+#define SERVER_PORT 5555
+#define CLIENT_PORT 5556
 #define MAX_BUFFER 65536
 #define DIGIT_IMAGE_SIZE 2145
+#define BUFFER_SIZE 10000  // Adjust based on expected buffer needs
 
 typedef struct {
     int A;
     int F;
+    int Framecount;
     char digitImages[16][DIGIT_IMAGE_SIZE];
 } PDU;
 
-int N, P, M;
-time_t lastIgnoreTime;
+PDU buffer[BUFFER_SIZE];
+int bufferIndex = 0;
+int N;  // Number of frames after which to pause
+int P;   // Pause duration in seconds
+int M; // Interval in seconds to skip a PDU
 
-void error(const char *msg) {
-    perror(msg);
-    exit(1);
-}
+pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
 
-void reencaminhar() {
-    int recvSocket, sendSocket;
-    struct sockaddr_in recvAddr, sendAddr, clientAddr;
-    socklen_t clientLen = sizeof(clientAddr);
+void* receiveFromServer(void* arg) {
+    int sock;
+    struct sockaddr_in server, client;
     PDU pdu;
-    int frameCount = 0;
+    socklen_t clientLen = sizeof(client);
 
-    recvSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (recvSocket < 0) {
-        error("Error creating receive socket");
-    }
-    recvAddr.sin_family = AF_INET;
-    recvAddr.sin_addr.s_addr = INADDR_ANY;
-    recvAddr.sin_port = htons(RECEIVE_PORT);
-
-    if (bind(recvSocket, (struct sockaddr *)&recvAddr, sizeof(recvAddr)) < 0) {
-        error("Error binding receive socket");
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
     }
 
-    sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sendSocket < 0) {
-        error("Error creating send socket");
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(SERVER_PORT);
+
+    if (bind(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
+        perror("Bind failed");
+        close(sock);
+        exit(EXIT_FAILURE);
     }
-    sendAddr.sin_family = AF_INET;
-    sendAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    sendAddr.sin_port = htons(SEND_PORT);
 
     while (1) {
-        printf("Waiting for data...\n"); // Debugging print
+        recvfrom(sock, &pdu, sizeof(PDU), 0, (struct sockaddr *)&client, &clientLen);
+        pthread_mutex_lock(&bufferMutex);
+        buffer[bufferIndex] = pdu;
+        bufferIndex = (bufferIndex + 1) % BUFFER_SIZE;
+        pthread_mutex_unlock(&bufferMutex);
+    }
 
-        // Receives PDU from server
-        int recvLen = recvfrom(recvSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&clientAddr, &clientLen);
-        if (recvLen < 0) {
-            error("Error receiving data");
-        }
+    close(sock);
+    return NULL;
+}
 
-        printf("Received PDU: A=%d, F=%d\n", pdu.A, pdu.F); // Debugging print
+void* retransmitToClient(void* arg) {
+    int sock;
+    struct sockaddr_in client;
+    socklen_t clientLen = sizeof(client);
+    int frameCount = 0;
+    time_t lastSkipTime = 0;
+    time_t startTime = time(NULL);
 
-        frameCount++;
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
 
-        // Ignores a PDU every M seconds
-        time_t currentIgnoreTime = time(NULL);
-        if (difftime(currentIgnoreTime, lastIgnoreTime) >= M) {
-            lastIgnoreTime = currentIgnoreTime;
-            printf("Ignoring PDU due to time condition\n"); // Debugging print
-            continue; // Skip sending this PDU
-        }
+    client.sin_family = AF_INET;
+    client.sin_addr.s_addr = inet_addr("127.0.0.1");
+    client.sin_port = htons(CLIENT_PORT);
 
-        // Sends the PDU to the client
-        int sendLen = sendto(sendSocket, &pdu, sizeof(PDU), 0, (struct sockaddr *)&sendAddr, sizeof(sendAddr));
-        if (sendLen < 0) {
-            error("Error sending data");
-        }
+    while (1) {
+        pthread_mutex_lock(&bufferMutex);
+        if (bufferIndex > 0) {
+            PDU pdu = buffer[0];
+            memmove(buffer, buffer + 1, (BUFFER_SIZE - 1) * sizeof(PDU));
+            bufferIndex--;
+            pthread_mutex_unlock(&bufferMutex);
 
-        printf("Sent PDU to client\n"); // Debugging print
+            frameCount++;
+            printf("Retransmitting Frame Number: %d -> A: %d, F: %d, Framecount: %d\n",
+                   frameCount, pdu.A, pdu.F, pdu.Framecount);
 
-        // Pauses every N frames
-        if (frameCount >= N) {
-            printf("Sleeping for %d seconds...\n", P); // Debugging print
-            sleep(P);
-            frameCount = 0; // Reset the frame counter after sleeping
+            if (frameCount % N == 0) {
+                printf("Pausing for %d seconds...\n", P);
+                sleep(P);
+            }
+
+            time_t currentTime = time(NULL);
+            if (difftime(currentTime, lastSkipTime) >= M) {
+                printf("Skipping PDU due to M seconds interval...\n");
+                lastSkipTime = currentTime;
+                continue;  // Skip this PDU
+            }
+
+            sendto(sock, &pdu, sizeof(PDU), 0, (struct sockaddr *)&client, clientLen);
+        } else {
+            pthread_mutex_unlock(&bufferMutex);
         }
     }
 
-    close(recvSocket);
-    close(sendSocket);
+    close(sock);
+    return NULL;
 }
 
 int main(int argc, char* argv[]) {
-    // Assign global variables
-    M = 20;
-    N = 10;
-    P = 5;
+    N = 10;  
+    P = 5;   
+    M = 15; 
     if (argc > 1) {
-        M = atoi(argv[1]);
+        N = atoi(argv[1]);
     }
     if (argc > 2) {
-        N = atoi(argv[2]);
+        P = atoi(argv[2]);
     }
     if (argc > 3) {
-        P = atoi(argv[3]);
+        M = atoi(argv[3]);
     }
 
-    // Initialize lastIgnoreTime to the current time
-    lastIgnoreTime = time(NULL);
+    printf("Starting retransmitter with N=%d, P=%d, M=%d\n", N, P, M);
 
-    reencaminhar();
+    pthread_t receiverThread, retransmitterThread;
+    pthread_create(&receiverThread, NULL, receiveFromServer, NULL);
+    pthread_create(&retransmitterThread, NULL, retransmitToClient, NULL);
+
+    pthread_join(receiverThread, NULL);
+    pthread_join(retransmitterThread, NULL);
 
     return 0;
 }

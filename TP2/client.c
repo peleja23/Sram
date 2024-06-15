@@ -3,61 +3,163 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <sys/socket.h>
+#include <time.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
 #define PORT 5556
-#define MAX_BUFFER 65536  // We can increase if necessary
-#define DIGIT_IMAGE_SIZE 2145   // Define an appropriate size for the image data
+#define MAX_BUFFER 65536
+#define DIGIT_IMAGE_SIZE 2145
 
 typedef struct {
-    int A;      // Control field
-    int F;      // Precision field
-    char digitImages[16][DIGIT_IMAGE_SIZE];  // Array to hold the image data for the digits
+    int A;
+    int F;
+    int Framecount;
+    char digitImages[16][DIGIT_IMAGE_SIZE];
 } PDU;
 
-void saveImage(const char* filename, char* buffer, int bufferSize) {
-    FILE* file = fopen(filename, "wb");
-    fwrite(buffer, 1, bufferSize, file);
-    fclose(file);
+SDL_Texture* loadTextureFromMemory(SDL_Renderer *renderer, const char *data, int size) {
+    if (size == 0 || data[0] == '\0') {
+        return NULL; // Retorna NULL se os dados forem vazios
+    }
+    SDL_RWops *rw = SDL_RWFromConstMem(data, size);
+    if (!rw) {
+        printf("Erro ao criar RWops: %s\n", SDL_GetError());
+        return NULL;
+    }
+
+    SDL_Surface *surface = IMG_Load_RW(rw, 1);
+    if (!surface) {
+        printf("Erro ao carregar imagem da memória: %s\n", IMG_GetError());
+        return NULL;
+    }
+
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    return texture;
 }
 
-void receiveData(){
-    int sock;
-    struct sockaddr_in server, client;
+void displayTimeFromPDU(PDU *pdu, SDL_Renderer *renderer, SDL_Texture **textures) {
+    SDL_Rect dst;
+    dst.y = 100;
+    dst.w = 64;
+    dst.h = 64;
+
+    for (int i = 0; i < 16; i++) {
+        if (textures[i] != NULL) {
+            SDL_DestroyTexture(textures[i]);
+        }
+        textures[i] = loadTextureFromMemory(renderer, pdu->digitImages[i], DIGIT_IMAGE_SIZE);
+        if (textures[i] == NULL) {
+            continue; // Continua se a textura for vazia ou nula
+        }
+
+        dst.x = 100 + i * 64;
+        SDL_RenderCopy(renderer, textures[i], NULL, &dst);
+    }
+    SDL_RenderPresent(renderer);
+}
+
+int main() {
+    int udpSocket;
+    struct sockaddr_in clientAddr;
     PDU pdu;
-    socklen_t clientLen = sizeof(client);
+    int frameInterval;
+    int bufferSize;
+    int running = 1;
 
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        perror("Socket creation failed");
-        exit(EXIT_FAILURE);
+    // Inicializa SDL
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("Erro ao iniciar SDL: %s\n", SDL_GetError());
+        return 1;
     }
 
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(PORT);
-
-    if (bind(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
-        perror("Bind failed");
-        close(sock);
-        exit(EXIT_FAILURE);
+    // Inicializa SDL_image
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        printf("Erro ao iniciar SDL_image: %s\n", IMG_GetError());
+        return 1;
     }
 
-    while(1) {
-        recvfrom(sock, &pdu, sizeof(PDU), 0, (struct sockaddr *)&client, &clientLen);
-        printf("A: %d, F: %d \n", pdu.A, pdu.F);
-        // Save each digit image to disk
-        for (int i = 0; i < 9 + pdu.F; i++) {  // Ensure we do not exceed array bounds
-            char filename[50];
-            sprintf(filename, "digit_%d.png", i);
-            saveImage(filename, pdu.digitImages[i], DIGIT_IMAGE_SIZE);
+    SDL_Window *window = SDL_CreateWindow("Relógio Digital", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 200, SDL_WINDOW_SHOWN);
+    if (window == NULL) {
+        printf("Erro ao criar janela: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    SDL_Texture *textures[16];
+    memset(textures, 0, sizeof(textures));
+
+    // Cria o socket UDP
+    udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udpSocket < 0) {
+        perror("Erro ao criar socket");
+        return 1;
+    }
+
+    memset(&clientAddr, 0, sizeof(clientAddr));
+    clientAddr.sin_family = AF_INET;
+    clientAddr.sin_addr.s_addr = INADDR_ANY;
+    clientAddr.sin_port = htons(PORT);
+
+    if (bind(udpSocket, (const struct sockaddr *)&clientAddr, sizeof(clientAddr)) < 0) {
+        perror("Erro ao fazer bind do socket");
+        close(udpSocket);
+        return 1;
+    }
+
+    // Recebe os parâmetros F e A
+    int recv_len = recvfrom(udpSocket, &pdu, sizeof(PDU), 0, NULL, NULL);
+    if (recv_len < 0) {
+        perror("Erro ao receber dados iniciais");
+        close(udpSocket);
+        return 1;
+    }
+    printf("Parâmetros recebidos: F=%d, A=%d\n", pdu.F, pdu.A);
+    frameInterval = pdu.F;
+    bufferSize = pdu.A;
+
+    // Verifica os parâmetros F e A
+    if (frameInterval <= 0 || bufferSize <= 0) {
+        printf("Parâmetros F ou A inválidos. F e A devem ser maiores que zero.\n");
+        close(udpSocket);
+        return 1;
+    }
+
+
+    while (running) {
+        int n = recvfrom(udpSocket, &pdu, sizeof(PDU), 0, NULL, NULL);
+        if (n < 0) {
+            perror("Erro ao receber dados");
+            break;
+        }
+
+        if (n != sizeof(PDU)) {
+            printf("Tamanho do PDU recebido incorreto: esperado %lu, recebido %d\n", sizeof(PDU), n);
+            continue;
+        }
+
+        displayTimeFromPDU(&pdu, renderer, textures);
+
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                running = 0;
+            }
         }
     }
 
-    close(sock);
-}
+    // Libera recursos
+    for (int i = 0; i < 16; i++) {
+        if (textures[i]) {
+            SDL_DestroyTexture(textures[i]);
+        }
+    }
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    IMG_Quit();
+    SDL_Quit();
 
-int main(int argc, char* argv[]) {
-    receiveData();
+    close(udpSocket);
     return 0;
 }
