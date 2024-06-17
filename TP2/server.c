@@ -4,8 +4,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <pthread.h>
 
-#define PORT 5555
 #define MAX_BUFFER 65536
 #define DIGIT_IMAGE_SIZE 2145  
 
@@ -26,6 +26,13 @@ const char* separatorFile = "digitos/separador.png";
 
 char digitImageBuffers[10][DIGIT_IMAGE_SIZE];
 char separatorImageBuffer[DIGIT_IMAGE_SIZE];
+
+PDU pdu;
+long totalFramesSent = 0;
+struct timespec startTime, endTime;
+int keepRunning = 1;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
 void generateTimeString(int F, char* buffer) {
     struct timespec ts;
@@ -94,10 +101,9 @@ void preparePDU(PDU* pdu, int F, int A, int Framecount) {
     }
 }
 
-void sendData(int F, int A, int Framecount) {
+void sendData(int F, int A, int Framecount, const char* ip, int port) {
     int udpSocket;
     struct sockaddr_in server;
-    PDU pdu;
 
     udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (udpSocket < 0) {
@@ -106,13 +112,22 @@ void sendData(int F, int A, int Framecount) {
     }
 
     server.sin_family = AF_INET;
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server.sin_port = htons(PORT);
+    server.sin_addr.s_addr = inet_addr(ip);
+    server.sin_port = htons(port);
 
     char previousTimestamp[MAX_BUFFER] = {0};
     char currentTimestamp[MAX_BUFFER];
 
+    clock_gettime(CLOCK_REALTIME, &startTime);
+
     while (1) {
+        pthread_mutex_lock(&lock);
+        if (!keepRunning) {
+            pthread_mutex_unlock(&lock);
+            break;
+        }
+        pthread_mutex_unlock(&lock);
+
         generateTimeString(F, currentTimestamp);
         if (strcmp(previousTimestamp, currentTimestamp) != 0) {
             Framecount = Framecount + 1;
@@ -123,7 +138,45 @@ void sendData(int F, int A, int Framecount) {
         }
     }
 
+    clock_gettime(CLOCK_REALTIME, &endTime);
     close(udpSocket);
+}
+
+void readServerConfig(const char* filename, char* ip, int* port) {
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("Failed to open server config file");
+        exit(EXIT_FAILURE);
+    }
+    fscanf(file, "%d", port);
+    fscanf(file, "%s", ip);
+    fclose(file);
+}
+
+void printStatistics(PDU* pdu) {
+    double totalTime = (endTime.tv_sec - startTime.tv_sec);
+    double frameRate = pdu->Framecount / totalTime;
+
+    printf("\n--- Estatísticas ---\n");
+    printf("Total de frames enviadas: %d\n", pdu->Framecount);
+    printf("Tempo de execução: %.2f segundos\n", totalTime);
+    printf("Ritmo de informação: %.2f frames por segundo\n", frameRate);
+}
+
+void* listenForExit(void* arg) {
+    char input[10];
+    while (1) {
+        printf("Digite 'Q' para terminar a execução: ");
+        scanf("%s", input);
+        if (strcmp(input, "Q") == 0) {
+            pthread_mutex_lock(&lock);
+            keepRunning = 0;
+            pthread_cond_signal(&cond);
+            pthread_mutex_unlock(&lock);
+            break;
+        }
+    }
+    return NULL;
 }
 
 int main(int argc, char* argv[]) {
@@ -131,12 +184,25 @@ int main(int argc, char* argv[]) {
     int F = 0;
     int A = 2;
     int Framecount = 0; 
+    char ip[INET_ADDRSTRLEN];
+    int port;
+
+    readServerConfig("server.txt", ip, &port);
+
     if (argc > 1) {
         F = atoi(argv[1]);
     }
     if (argc > 2) {
         A = atoi(argv[2]);
     }
-    sendData(F, A, Framecount);
+
+    pthread_t exitThread;
+    pthread_create(&exitThread, NULL, listenForExit, NULL);
+
+    sendData(F, A, Framecount, ip, port);
+
+    pthread_join(exitThread, NULL);
+    printStatistics(&pdu);
+
     return 0;
 }

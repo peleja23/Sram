@@ -9,7 +9,6 @@
 #include <SDL2/SDL_image.h>
 #include <pthread.h>
 
-#define PORT 5556
 #define MAX_BUFFER 65536
 #define DIGIT_IMAGE_SIZE 2145
 
@@ -25,9 +24,10 @@ int bufferSize;
 int head = 0;
 int tail = 0;
 int count = 0;
-int frameInterval = 1000; // Intervalo entre frames em microsegundos
+int frameInterval = 0; // Intervalo entre frames em microsegundos
 pthread_mutex_t lock;
 pthread_cond_t notEmpty;
+int receptionPort; // Porta de recepção
 
 SDL_Texture* loadTextureFromMemory(SDL_Renderer *renderer, const char *data, int size) {
     if (size == 0 || data[0] == '\0') {
@@ -107,6 +107,7 @@ void addToBuffer(PDU *pdu) {
 }
 
 PDU* getFromBuffer() {
+    usleep(frameInterval);
     PDU *pdu = NULL;
     pthread_mutex_lock(&lock);
     while (count == 0) {
@@ -134,7 +135,7 @@ void* receivePDU(void *arg) {
     memset(&clientAddr, 0, sizeof(clientAddr));
     clientAddr.sin_family = AF_INET;
     clientAddr.sin_addr.s_addr = INADDR_ANY;
-    clientAddr.sin_port = htons(PORT);
+    clientAddr.sin_port = htons(receptionPort);
 
     if (bind(udpSocket, (const struct sockaddr *)&clientAddr, sizeof(clientAddr)) < 0) {
         perror("Erro ao fazer bind do socket");
@@ -180,7 +181,7 @@ void* displayClock(void *arg) {
         clock_gettime(CLOCK_REALTIME, &currentTime);
         long elapsedTime = (currentTime.tv_sec - lastFrameTime.tv_sec) * 1000000 + (currentTime.tv_nsec - lastFrameTime.tv_nsec) / 1000;
 
-        if (elapsedTime >= frameInterval) {
+        if (elapsedTime > frameInterval) {
             PDU *frame = getFromBuffer();
             if (frame != NULL) {
                 displayTimeFromPDU(frame, renderer, textures);
@@ -206,6 +207,16 @@ void* displayClock(void *arg) {
     pthread_exit(NULL);
 }
 
+void readReceptionPort(const char* filename, int* port) {
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("Failed to open config file");
+        exit(EXIT_FAILURE);
+    }
+    fscanf(file, "%d", port);
+    fclose(file);
+}
+
 int main() {
     PDU initialPDU;
     pthread_t receiverThread, displayThread;
@@ -222,6 +233,10 @@ int main() {
         return 1;
     }
 
+    // Lê a porta de recepção do ficheiro
+    readReceptionPort("client.txt", &receptionPort);
+    printf("Porta de recepção lida do ficheiro: %d\n", receptionPort);
+
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (udpSocket < 0) {
         perror("Erro ao criar socket");
@@ -232,7 +247,7 @@ int main() {
     memset(&clientAddr, 0, sizeof(clientAddr));
     clientAddr.sin_family = AF_INET;
     clientAddr.sin_addr.s_addr = INADDR_ANY;
-    clientAddr.sin_port = htons(PORT);
+    clientAddr.sin_port = htons(receptionPort);
 
     if (bind(udpSocket, (const struct sockaddr *)&clientAddr, sizeof(clientAddr)) < 0) {
         perror("Erro ao fazer bind do socket");
