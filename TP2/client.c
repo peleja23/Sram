@@ -25,7 +25,6 @@ int bufferTail = 0;
 int frameInterval = 0; // Intervalo entre frames em microsegundos
 int serverPort;
 int receptionPort;
-char serverIp[INET_ADDRSTRLEN];
 pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t bufferNotEmpty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t bufferNotFull = PTHREAD_COND_INITIALIZER;

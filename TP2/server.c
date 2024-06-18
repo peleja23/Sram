@@ -112,21 +112,14 @@ void sendData(int F, int A, int Framecount, const char* ip, int port) {
     int udpSocket;
     struct sockaddr_in server;
 
-    udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (udpSocket < 0) {
-        perror("Socket creation failed");
-        exit(EXIT_FAILURE);
-    }
-
+    socket(AF_INET, SOCK_DGRAM, 0);
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = inet_addr(ip);
     server.sin_port = htons(port);
-
     char previousTimestamp[MAX_BUFFER] = {0};
     char currentTimestamp[MAX_BUFFER];
 
     clock_gettime(CLOCK_REALTIME, &startTime);
-
     while (1) {
         pthread_mutex_lock(&lock);
         if (!keepRunning) {

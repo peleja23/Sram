@@ -9,7 +9,7 @@
 
 #define MAX_BUFFER 65536
 #define DIGIT_IMAGE_SIZE 2145
-#define BUFFER_SIZE 30000  // Adjust based on expected buffer needs
+#define BUFFER_SIZE 30000 
 
 typedef struct {
     int A;
@@ -21,14 +21,13 @@ typedef struct {
 PDU buffer[BUFFER_SIZE];
 int bufferHead = 0;
 int bufferTail = 0;
-int N;  // Number of frames after which to pause
-int P;  // Pause duration in seconds
-int M;  // Interval in seconds to skip a PDU
+int N;  
+int P; 
+int M;  
 int serverPort;
 int clientPort;
 char serverIp[INET_ADDRSTRLEN];
 
-// Variáveis globais para controle e estatísticas
 int keepRunning = 1;
 long skippedFrames = 0;
 double totalPausedTime = 0.0;
@@ -37,6 +36,14 @@ pthread_mutex_t statsMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t bufferNotEmpty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t bufferNotFull = PTHREAD_COND_INITIALIZER;
 
+void readServerConfig(const char* filename, int* serverPort, int* clientPort, char* serverIp) {
+    FILE* file = fopen(filename, "r");
+    fscanf(file, "%d", serverPort);
+    fscanf(file, "%d", clientPort);
+    fscanf(file, "%s", serverIp);
+    fclose(file);
+}
+
 void* receiveFromServer(void* arg) {
     int sock;
     struct sockaddr_in server, client;
@@ -44,21 +51,11 @@ void* receiveFromServer(void* arg) {
     socklen_t clientLen = sizeof(client);
     time_t lastSkipTime = time(NULL);
 
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        perror("Socket creation failed");
-        exit(EXIT_FAILURE);
-    }
-
+    socket(AF_INET, SOCK_DGRAM, 0);
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(serverPort);
-
-    if (bind(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
-        perror("Bind failed");
-        close(sock);
-        exit(EXIT_FAILURE);
-    }
+    bind(sock, (struct sockaddr *)&server, sizeof(server));
 
     while (1) {
         pthread_mutex_lock(&statsMutex);
@@ -77,7 +74,7 @@ void* receiveFromServer(void* arg) {
             pthread_mutex_lock(&statsMutex);
             skippedFrames++;
             pthread_mutex_unlock(&statsMutex);
-            continue;  // Skip this PDU
+            continue;
         }
 
         pthread_mutex_lock(&bufferMutex);
@@ -101,12 +98,7 @@ void* retransmitToClient(void* arg) {
     socklen_t clientLen = sizeof(client);
     int frameCount = 0;
 
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
-        perror("Socket creation failed");
-        exit(EXIT_FAILURE);
-    }
-
+    socket(AF_INET, SOCK_DGRAM, 0);
     client.sin_family = AF_INET;
     client.sin_addr.s_addr = inet_addr(serverIp);
     client.sin_port = htons(clientPort);
@@ -150,30 +142,10 @@ void* retransmitToClient(void* arg) {
     return NULL;
 }
 
-void readServerConfig(const char* filename, int* serverPort, int* clientPort, char* serverIp) {
-    FILE* file = fopen(filename, "r");
-    if (file == NULL) {
-        perror("Failed to open server config file");
-        exit(EXIT_FAILURE);
-    }
-    fscanf(file, "%d", serverPort);
-    fscanf(file, "%d", clientPort);
-    fscanf(file, "%s", serverIp);
-    fclose(file);
-}
-
-void printStatistics() {
-    pthread_mutex_lock(&statsMutex);
-    printf("\n--- Estatísticas ---\n");
-    printf("Total de frames ingnorados: %ld\n", skippedFrames);
-    printf("Tempo total parado: %.2f segundos\n", totalPausedTime);
-    pthread_mutex_unlock(&statsMutex);
-}
-
 void* listenForExit(void* arg) {
     char input[10];
     while (1) {
-        printf("Digite 'Q' para terminar a execução: ");
+        printf("Press 'Q' to stop execution and see statistics: \n");
         scanf("%s", input);
         if (strcmp(input, "Q") == 0) {
             pthread_mutex_lock(&statsMutex);
@@ -187,10 +159,18 @@ void* listenForExit(void* arg) {
     return NULL;
 }
 
+void printStatistics() {
+    pthread_mutex_lock(&statsMutex);
+    printf("\n--- Statistics ---\n");
+    printf("Total skipped frames: %ld\n", skippedFrames);
+    printf("Total paused time: %.0f seconds\n", totalPausedTime);
+    pthread_mutex_unlock(&statsMutex);
+}
+
 int main(int argc, char* argv[]) {
     N = 100;  
-    P = 3;   
-    M = 8; 
+    P = 2;   
+    M = 9; 
     if (argc > 1) {
         N = atoi(argv[1]);
     }
