@@ -7,9 +7,9 @@
 #include <pthread.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <math.h>
 
 #define DIGIT_IMAGE_SIZE 2145
-#define BUFFER_SIZE 30000  // Ajuste conforme necessário
 
 typedef struct {
     int A;
@@ -18,7 +18,8 @@ typedef struct {
     char digitImages[16][DIGIT_IMAGE_SIZE];
 } PDU;
 
-PDU buffer[BUFFER_SIZE];
+PDU *buffer;
+int bufferSize;  // Nova variável para armazenar o tamanho do buffer
 int bufferHead = 0;
 int bufferTail = 0;
 int frameInterval = 0; // Intervalo entre frames em microsegundos
@@ -93,12 +94,12 @@ void* receivePDU(void* arg) {
         recvfrom(udpSocket, &pdu, sizeof(PDU), 0, NULL, NULL);
 
         pthread_mutex_lock(&bufferMutex);
-        while ((bufferTail + 1) % BUFFER_SIZE == bufferHead) {
+        while ((bufferTail + 1) % bufferSize == bufferHead) {
             pthread_cond_wait(&bufferNotFull, &bufferMutex);
         }
         
         buffer[bufferTail] = pdu;
-        bufferTail = (bufferTail + 1) % BUFFER_SIZE;
+        bufferTail = (bufferTail + 1) % bufferSize;
         pthread_cond_signal(&bufferNotEmpty);
         pthread_mutex_unlock(&bufferMutex);
     }
@@ -126,19 +127,20 @@ void* displayClock(void *arg) {
         }
 
         PDU frame = buffer[bufferHead];
-        bufferHead = (bufferHead + 1) % BUFFER_SIZE;
+        bufferHead = (bufferHead + 1) % bufferSize;
         pthread_cond_signal(&bufferNotFull);
         pthread_mutex_unlock(&bufferMutex);
-
-        displayTimeFromPDU(&frame, renderer, textures);
         usleep(frameInterval);
-
+        displayTimeFromPDU(&frame, renderer, textures);
+        
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 running = 0;
             }
         }
+
+        SDL_Delay(10);  // Pequeno atraso para permitir que o sistema operacional processe outros eventos
     }
 
     for (int i = 0; i < 16; i++) {
@@ -209,7 +211,15 @@ int main() {
     close(udpSocket);
 
     printf("Parâmetros recebidos: F=%d, A=%d\n", initialPDU.F, initialPDU.A);
-    // Define o intervalo entre frames com base no valor de F
+    
+    // Define o tamanho do buffer e o intervalo entre frames com base nos valores de F e A
+    bufferSize = pow(10, initialPDU.F) * initialPDU.A;
+    buffer = malloc(bufferSize * sizeof(PDU));
+    if (buffer == NULL) {
+        perror("Erro ao alocar memória para o buffer");
+        return 1;
+    }
+
     frameInterval = 1000000 / pow(10, initialPDU.F); // Em microsegundos
     printf("Frame Interval: %d microseconds\n", frameInterval);
 
@@ -218,6 +228,7 @@ int main() {
 
     pthread_join(receiverThread, NULL);
     pthread_join(displayThread, NULL);
+
 
     IMG_Quit();
     SDL_Quit();
