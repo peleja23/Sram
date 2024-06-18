@@ -4,13 +4,12 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <time.h>
-#include <math.h>
+#include <pthread.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
-#include <pthread.h>
 
-#define MAX_BUFFER 65536
 #define DIGIT_IMAGE_SIZE 2145
+#define BUFFER_SIZE 30000  // Ajuste conforme necessário
 
 typedef struct {
     int A;
@@ -19,32 +18,31 @@ typedef struct {
     char digitImages[16][DIGIT_IMAGE_SIZE];
 } PDU;
 
-PDU *buffer;
-int bufferSize;
-int head = 0;
-int tail = 0;
-int count = 0;
+PDU buffer[BUFFER_SIZE];
+int bufferHead = 0;
+int bufferTail = 0;
 int frameInterval = 0; // Intervalo entre frames em microsegundos
-pthread_mutex_t lock;
-pthread_cond_t notEmpty;
-int receptionPort; // Porta de recepção
+int serverPort;
+int receptionPort;
+char serverIp[INET_ADDRSTRLEN];
+pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t bufferNotEmpty = PTHREAD_COND_INITIALIZER;
+pthread_cond_t bufferNotFull = PTHREAD_COND_INITIALIZER;
 
 SDL_Texture* loadTextureFromMemory(SDL_Renderer *renderer, const char *data, int size) {
     if (size == 0 || data[0] == '\0') {
-        return NULL; // Retorna NULL se os dados forem vazios
+        return NULL;
     }
     SDL_RWops *rw = SDL_RWFromConstMem(data, size);
     if (!rw) {
         printf("Erro ao criar RWops: %s\n", SDL_GetError());
         return NULL;
     }
-
     SDL_Surface *surface = IMG_Load_RW(rw, 1);
     if (!surface) {
         printf("Erro ao carregar imagem da memória: %s\n", IMG_GetError());
         return NULL;
     }
-
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
     return texture;
@@ -55,111 +53,58 @@ void displayTimeFromPDU(PDU *pdu, SDL_Renderer *renderer, SDL_Texture **textures
     dst.y = 80;
     dst.w = 40;
     dst.h = 40;
-
     for (int i = 0; i < 16; i++) {
         if (textures[i] != NULL) {
             SDL_DestroyTexture(textures[i]);
         }
         textures[i] = loadTextureFromMemory(renderer, pdu->digitImages[i], DIGIT_IMAGE_SIZE);
         if (textures[i] == NULL) {
-            continue; // Continua se a textura for vazia ou nula
+            continue;
         }
-
         dst.x = 0 + i * 64;
         SDL_RenderCopy(renderer, textures[i], NULL, &dst);
     }
     SDL_RenderPresent(renderer);
 }
 
-void initBuffer(int size) {
-    buffer = (PDU *)malloc(size * sizeof(PDU));
-    bufferSize = size;
-    head = 0;
-    tail = 0;
-    count = 0;
-    pthread_mutex_init(&lock, NULL);
-    pthread_cond_init(&notEmpty, NULL);
-}
-
-void freeBuffer() {
-    free(buffer);
-    pthread_mutex_destroy(&lock);
-    pthread_cond_destroy(&notEmpty);
-}
-
-void addToBuffer(PDU *pdu) {
-    pthread_mutex_lock(&lock);
-    if (count < bufferSize) {
-        buffer[head] = *pdu;
-        head = (head + 1) % bufferSize;
-        count++;
-    } else {
-        printf("Buffer cheio, limpando buffer\n");
-        head = 0;
-        tail = 0;
-        count = 0;
-        buffer[head] = *pdu;
-        head = (head + 1) % bufferSize;
-        count = 1;
-    }
-    pthread_cond_signal(&notEmpty);
-    pthread_mutex_unlock(&lock);
-}
-
-PDU* getFromBuffer() {
-    usleep(frameInterval);
-    PDU *pdu = NULL;
-    pthread_mutex_lock(&lock);
-    while (count == 0) {
-        pthread_cond_wait(&notEmpty, &lock);
-    }
-    pdu = &buffer[tail];
-    tail = (tail + 1) % bufferSize;
-    count--;
-    pthread_mutex_unlock(&lock);
-    return pdu;
-}
-
-void* receivePDU(void *arg) {
+void* receivePDU(void* arg) {
     int udpSocket;
-    struct sockaddr_in clientAddr;
+    struct sockaddr_in serverAddr;
     PDU pdu;
 
-    // Cria o socket UDP
     udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (udpSocket < 0) {
         perror("Erro ao criar socket");
         pthread_exit(NULL);
     }
 
-    memset(&clientAddr, 0, sizeof(clientAddr));
-    clientAddr.sin_family = AF_INET;
-    clientAddr.sin_addr.s_addr = INADDR_ANY;
-    clientAddr.sin_port = htons(receptionPort);
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(receptionPort);
 
-    if (bind(udpSocket, (const struct sockaddr *)&clientAddr, sizeof(clientAddr)) < 0) {
+    if (bind(udpSocket, (const struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
         perror("Erro ao fazer bind do socket");
         close(udpSocket);
         pthread_exit(NULL);
     }
 
     while (1) {
-        int n = recvfrom(udpSocket, &pdu, sizeof(PDU), 0, NULL, NULL);
-        if (n < 0) {
-            perror("Erro ao receber dados");
-            break;
-        }
+        recvfrom(udpSocket, &pdu, sizeof(PDU), 0, NULL, NULL);
 
-        if (n != sizeof(PDU)) {
-            printf("Tamanho do PDU recebido incorreto: esperado %lu, recebido %d\n", sizeof(PDU), n);
-            continue;
+        pthread_mutex_lock(&bufferMutex);
+        while ((bufferTail + 1) % BUFFER_SIZE == bufferHead) {
+            pthread_cond_wait(&bufferNotFull, &bufferMutex);
         }
-
-        addToBuffer(&pdu);
+        
+        buffer[bufferTail] = pdu;
+        bufferTail = (bufferTail + 1) % BUFFER_SIZE;
+        pthread_cond_signal(&bufferNotEmpty);
+        pthread_mutex_unlock(&bufferMutex);
     }
 
     close(udpSocket);
-    pthread_exit(NULL);
+    return NULL;
 }
 
 void* displayClock(void *arg) {
@@ -174,20 +119,19 @@ void* displayClock(void *arg) {
     memset(textures, 0, sizeof(textures));
 
     int running = 1;
-    struct timespec lastFrameTime;
-    clock_gettime(CLOCK_REALTIME, &lastFrameTime);
     while (running) {
-        struct timespec currentTime;
-        clock_gettime(CLOCK_REALTIME, &currentTime);
-        long elapsedTime = (currentTime.tv_sec - lastFrameTime.tv_sec) * 1000000 + (currentTime.tv_nsec - lastFrameTime.tv_nsec) / 1000;
-
-        if (elapsedTime > frameInterval) {
-            PDU *frame = getFromBuffer();
-            if (frame != NULL) {
-                displayTimeFromPDU(frame, renderer, textures);
-            }
-            lastFrameTime = currentTime;
+        pthread_mutex_lock(&bufferMutex);
+        while (bufferHead == bufferTail) {
+            pthread_cond_wait(&bufferNotEmpty, &bufferMutex);
         }
+
+        PDU frame = buffer[bufferHead];
+        bufferHead = (bufferHead + 1) % BUFFER_SIZE;
+        pthread_cond_signal(&bufferNotFull);
+        pthread_mutex_unlock(&bufferMutex);
+
+        displayTimeFromPDU(&frame, renderer, textures);
+        usleep(frameInterval);
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -265,10 +209,6 @@ int main() {
     close(udpSocket);
 
     printf("Parâmetros recebidos: F=%d, A=%d\n", initialPDU.F, initialPDU.A);
-    bufferSize = pow(10, initialPDU.F) * initialPDU.A;
-    printf("Buffer Size: %d\n", bufferSize);
-    initBuffer(bufferSize);
-
     // Define o intervalo entre frames com base no valor de F
     frameInterval = 1000000 / pow(10, initialPDU.F); // Em microsegundos
     printf("Frame Interval: %d microseconds\n", frameInterval);
@@ -278,8 +218,6 @@ int main() {
 
     pthread_join(receiverThread, NULL);
     pthread_join(displayThread, NULL);
-
-    freeBuffer();
 
     IMG_Quit();
     SDL_Quit();

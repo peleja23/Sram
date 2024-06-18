@@ -130,8 +130,7 @@ void* retransmitToClient(void* arg) {
         pthread_mutex_unlock(&bufferMutex);
 
         frameCount++;
-        printf("Retransmitting Frame Number: %d -> A: %d, F: %d, Framecount: %d\n",
-               frameCount, pdu.A, pdu.F, pdu.Framecount);
+        printf("Retransmitting Frame Number: %d -> A: %d, F: %d, Framecount: %d\n",frameCount, pdu.A, pdu.F, pdu.Framecount);
 
         if (frameCount % N == 0) {
             printf("Pausing for %d seconds...\n", P);
@@ -140,10 +139,10 @@ void* retransmitToClient(void* arg) {
             sleep(P);
             clock_gettime(CLOCK_REALTIME, &endPause);
             pthread_mutex_lock(&statsMutex);
-            totalPausedTime += (endPause.tv_sec - startPause.tv_sec) + (endPause.tv_nsec - startPause.tv_nsec) / 1e9;
+            totalPausedTime += (endPause.tv_sec - startPause.tv_sec);
             pthread_mutex_unlock(&statsMutex);
         }
-
+        usleep(1);
         sendto(sock, &pdu, sizeof(PDU), 0, (struct sockaddr *)&client, clientLen);
     }
 
