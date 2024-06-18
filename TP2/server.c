@@ -171,7 +171,7 @@ void printStatistics(PDU* pdu) {
     printf("\n--- Statistics ---\n");
     printf("Total sent Frames: %d\n", pdu->Framecount);
     printf("Execution time: %.3f seconds\n", totalTime); 
-    printf("Info Rate: %.1f frames/second\n", frameRate); 
+    printf("Info Rate: %.0f frames/second\n", frameRate); 
 }
 
 int main(int argc, char* argv[]) {
