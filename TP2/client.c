@@ -29,44 +29,6 @@ pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t bufferNotEmpty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t bufferNotFull = PTHREAD_COND_INITIALIZER;
 
-SDL_Texture* loadTextureFromMemory(SDL_Renderer *renderer, const char *data, int size) {
-    if (size == 0 || data[0] == '\0') {
-        return NULL;
-    }
-    SDL_RWops *rw = SDL_RWFromConstMem(data, size);
-    if (!rw) {
-        printf("Erro ao criar RWops: %s\n", SDL_GetError());
-        return NULL;
-    }
-    SDL_Surface *surface = IMG_Load_RW(rw, 1);
-    if (!surface) {
-        printf("Erro ao carregar imagem da memória: %s\n", IMG_GetError());
-        return NULL;
-    }
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    return texture;
-}
-
-void displayTimeFromPDU(PDU *pdu, SDL_Renderer *renderer, SDL_Texture **textures) {
-    SDL_Rect dst;
-    dst.y = 80;
-    dst.w = 40;
-    dst.h = 40;
-    for (int i = 0; i < 16; i++) {
-        if (textures[i] != NULL) {
-            SDL_DestroyTexture(textures[i]);
-        }
-        textures[i] = loadTextureFromMemory(renderer, pdu->digitImages[i], DIGIT_IMAGE_SIZE);
-        if (textures[i] == NULL) {
-            continue;
-        }
-        dst.x = 0 + i * 64;
-        SDL_RenderCopy(renderer, textures[i], NULL, &dst);
-    }
-    SDL_RenderPresent(renderer);
-}
-
 void* receivePDU(void* arg) {
     int udpSocket;
     struct sockaddr_in serverAddr;
@@ -105,6 +67,41 @@ void* receivePDU(void* arg) {
 
     close(udpSocket);
     return NULL;
+}
+
+SDL_Texture* loadTextureFromMemory(SDL_Renderer *renderer, const char *data, int size) {
+    if (size == 0 || data[0] == '\0') {
+        return NULL;
+    }
+    SDL_RWops *rw = SDL_RWFromConstMem(data, size);
+
+    SDL_Surface *surface = IMG_Load_RW(rw, 1);
+    if (!surface) {
+        printf("Erro ao carregar imagem da memória: %s\n", IMG_GetError());
+        return NULL;
+    }
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    return texture;
+}
+
+void displayTimeFromPDU(PDU *pdu, SDL_Renderer *renderer, SDL_Texture **textures) {
+    SDL_Rect dst;
+    dst.y = 80;
+    dst.w = 40;
+    dst.h = 40;
+    for (int i = 0; i < 16; i++) {
+        if (textures[i] != NULL) {
+            SDL_DestroyTexture(textures[i]);
+        }
+        textures[i] = loadTextureFromMemory(renderer, pdu->digitImages[i], DIGIT_IMAGE_SIZE);
+        if (textures[i] == NULL) {
+            continue;
+        }
+        dst.x = 0 + i * 64;
+        SDL_RenderCopy(renderer, textures[i], NULL, &dst);
+    }
+    SDL_RenderPresent(renderer);
 }
 
 void* displayClock(void *arg) {
@@ -167,20 +164,13 @@ int main() {
     pthread_t receiverThread, displayThread;
 
     // Inicializa SDL
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        printf("Erro ao iniciar SDL: %s\n", SDL_GetError());
-        return 1;
-    }
+    SDL_Init(SDL_INIT_VIDEO); 
 
     // Inicializa SDL_image
-    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
-        printf("Erro ao iniciar SDL_image: %s\n", IMG_GetError());
-        return 1;
-    }
+    IMG_Init(IMG_INIT_PNG);
 
     // Lê a porta de recepção do ficheiro
     readReceptionPort("client.txt", &receptionPort);
-    printf("Porta de recepção lida do ficheiro: %d\n", receptionPort);
 
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (udpSocket < 0) {
@@ -213,11 +203,8 @@ int main() {
     
     // Define o tamanho do buffer e o intervalo entre frames com base nos valores de F e A
     bufferSize = pow(10, initialPDU.F) * initialPDU.A;
+    printf("Buffer Size: %d", bufferSize);
     buffer = malloc(bufferSize * sizeof(PDU));
-    if (buffer == NULL) {
-        perror("Erro ao alocar memória para o buffer");
-        return 1;
-    }
 
     frameInterval = 1000000 / pow(10, initialPDU.F); // Em microsegundos
     printf("Frame Interval: %d microseconds\n", frameInterval);
