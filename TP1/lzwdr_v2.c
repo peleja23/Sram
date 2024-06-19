@@ -49,6 +49,7 @@ void insertPattern(TrieNode *node, const char *pattern) {
         }
         current = current->children[index];
     }
+    //ad
     current->isEndOfPattern = 1;
 }
 
