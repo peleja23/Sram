@@ -235,23 +235,23 @@ int main(int argc, char* argv[]) {
     P = 2;   
     M = 9; 
     if (argc > 1) {
-        N = atoi(argv[1]);
+        N = atoi(argv[1]); // Set number of frames to pause from command line argument
     }
     if (argc > 2) {
-        P = atoi(argv[2]);
+        P = atoi(argv[2]); // Set duration of the puase from command line argument
     }
     if (argc > 3) {
-        M = atoi(argv[3]);
+        M = atoi(argv[3]); // Set interval to skip frame from command line argument
     }
 
-    readRetransmitterConfig("retransmitter.txt", &serverPort, &clientPort, serverIp);
+    readRetransmitterConfig("retransmitter.txt", &serverPort, &clientPort, serverIp); // Read retransmitter configuration
 
     printf("Starting retransmitter with N=%d, P=%d, M=%d\n", N, P, M);
 
     pthread_t receiverThread, retransmitterThread, exitThread;
-    pthread_create(&receiverThread, NULL, receiveFromServer, NULL);
-    pthread_create(&retransmitterThread, NULL, retransmitToClient, NULL);
-    pthread_create(&exitThread, NULL, listenForExit, NULL);
+    pthread_create(&receiverThread, NULL, receiveFromServer, NULL); // Create a thread to receive PDU's
+    pthread_create(&retransmitterThread, NULL, retransmitToClient, NULL); // Create a thread to send PDU's
+    pthread_create(&exitThread, NULL, listenForExit, NULL); // Create a thread to listen for exit command
 
     pthread_join(exitThread, NULL);
     pthread_join(receiverThread, NULL);
