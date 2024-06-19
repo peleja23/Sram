@@ -2,13 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define CHAR_SET_SIZE 256
+#define CHAR_SET_SIZE 6000
 
 // Trie node structure
 typedef struct TrieNode {
     struct TrieNode *children[CHAR_SET_SIZE];
     int isEndOfPattern;
 } TrieNode;
+
+// Variável global para a raiz da Trie
+TrieNode *root = NULL;
 
 // Função para criar um novo nó da trie
 TrieNode* createNode() {
@@ -20,36 +23,51 @@ TrieNode* createNode() {
     return node;
 }
 
+// Função para inicializar a Trie com caracteres ASCII
+void initializeTrie() {
+    if (root == NULL) {
+        root = createNode();
+       
+        for (int i = 0; i < 256; i++) {
+            char character = (char)i;
+            char pattern[2] = { character, '\0' };
+            insertPattern(root, pattern);
+            printf("Initial trie characters added: ");
+            printf("%c \n", character);
+        }
+    }
+}
+
 // Função para inserir um padrão na trie
-void insertPattern(TrieNode *root, const char *pattern) {
-    TrieNode *node = root;
+void insertPattern(TrieNode *node, const char *pattern) {
+    TrieNode *current = node;
     int len = strlen(pattern);
     for (int i = 0; i < len; i++) {
-        unsigned char index = (unsigned char)pattern[i]; // Usa unsigned char para garantir valores dentro de [0, 255]
-        if (!node->children[index]) {
-            node->children[index] = createNode();
+        unsigned char index = (unsigned char)pattern[i];
+        if (!current->children[index]) {
+            current->children[index] = createNode();
         }
-        node = node->children[index];
+        current = current->children[index];
     }
-    node->isEndOfPattern = 1;
+    current->isEndOfPattern = 1;
 }
 
 // Função para buscar um padrão na trie
-int searchPattern(TrieNode *root, const char *pattern) {
-    TrieNode *node = root;
+int searchPattern(TrieNode *node, const char *pattern) {
+    TrieNode *current = node;
     int len = strlen(pattern);
     for (int i = 0; i < len; i++) {
-        unsigned char index = (unsigned char)pattern[i]; // Usa unsigned char para garantir valores dentro de [0, 255]
-        if (!node->children[index]) {
+        unsigned char index = (unsigned char)pattern[i];
+        if (!current->children[index]) {
             return 0;
         }
-        node = node->children[index];
+        current = current->children[index];
     }
-    return node != NULL && node->isEndOfPattern;
+    return current != NULL && current->isEndOfPattern;
 }
 
 // Função para adicionar um padrão e seu reverso na trie
-void addPatternAndReverse(TrieNode *root, const char *pattern) {
+void addPatternAndReverse(const char *pattern) {
     if (!searchPattern(root, pattern)) {
         insertPattern(root, pattern);
         printf("Pattern added: %s\n", pattern);
@@ -72,45 +90,19 @@ void addPatternAndReverse(TrieNode *root, const char *pattern) {
 
 // Função para comprimir uma sequência usando trie para padrões e seus reversos
 void compress(const char *sequence) {
-    TrieNode *root = createNode();
-
-    // Adiciona caracteres ASCII na trie
-  
-    for (int i = 0; i < CHAR_SET_SIZE; i++) {
-        char character = (char)i;
-        char pattern[2] = { character, '\0' };
-        insertPattern(root, pattern);
-        printf("Initial trie characters added: ");
-        printf("%c ", character);
-         printf("\n");
-    }
-   
+    initializeTrie();
 
     int len = strlen(sequence);
-
-    // Adiciona todos os padrões e seus reversos na trie
     for (int i = 0; i < len; i++) {
         for (int j = i + 1; j <= len; j++) {
             char *pattern = (char *)malloc((j - i + 1) * sizeof(char));
             strncpy(pattern, sequence + i, j - i);
             pattern[j - i] = '\0';
 
-            addPatternAndReverse(root, pattern);
+            addPatternAndReverse(pattern);
             free(pattern);
         }
     }
-
-    // Libera memória usada pela trie
-    void freeTrie(TrieNode* node) {
-        for (int i = 0; i < CHAR_SET_SIZE; i++) {
-            if (node->children[i]) {
-                freeTrie(node->children[i]);
-            }
-        }
-        free(node);
-    }
-
-    freeTrie(root);
 }
 
 // Função para processar arquivo em pedaços e comprimir cada pedaço
@@ -147,6 +139,8 @@ int main(int argc, char *argv[]) {
     size_t chunkSize = 65536;
 
     processFileInChunks(inputFileName, chunkSize);
+
+    // Liberar memória da Trie não é necessário aqui, conforme requisito de não limpar a Trie
 
     return 0;
 }
