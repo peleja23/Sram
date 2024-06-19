@@ -3,6 +3,7 @@
     "files.associations": {
         "time.h": "c",
         "math.h": "c",
-        "algorithm": "c"
+        "algorithm": "c",
+        "string.h": "c"
     }
 }
