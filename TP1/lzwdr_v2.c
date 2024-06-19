@@ -1,242 +1,146 @@
-/*
-    Serviços de Rede & Aplicações Multimédia, TP-1
-    Ano Letivo 2022/2023
-    Gustavo Oliveira - A83582
-    Jose Peleja - A84436
-    Marco Araujo - A89387
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
-#include <time.h>
 
-#define ALPHABET_SIZE 256
+#define CHAR_SET_SIZE 6000
 
-// Declaração de variáveis globais
-long sizeOfTheDictionary = 0;
-int indexOfPattern = 1;
+// Trie node structure
+typedef struct TrieNode {
+    struct TrieNode *children[CHAR_SET_SIZE];
+    int isEndOfPattern;
+} TrieNode;
 
-typedef struct trieNode {
-    struct trieNode *children[ALPHABET_SIZE];
-    int indexOfPattern;
-    int numberOfSearches;
-} trieNode;
+// Variável global para a raiz da Trie
+TrieNode *root = NULL;
 
-// Função para criar um novo nó na trie
-trieNode *createNewNode() {
-    trieNode *newNode = (trieNode *)malloc(sizeof(trieNode));
-
-    if (newNode) {
-        newNode->indexOfPattern = 0;
-        memset(newNode->children, 0, sizeof(newNode->children));
+// Função para criar um novo nó da trie
+TrieNode* createNode() {
+    TrieNode* node = (TrieNode*)malloc(sizeof(TrieNode));
+    node->isEndOfPattern = 0;
+    for (int i = 0; i < CHAR_SET_SIZE; i++) {
+        node->children[i] = NULL;
     }
-
-    return newNode;
+    return node;
 }
 
-// Função para adicionar um novo nó na trie
-int insert(unsigned char *pattern, int length, trieNode **dictionary) {
-    if (*dictionary == NULL) {
-        *dictionary = createNewNode();
-    }
-
-    trieNode *temporaryNode = *dictionary;
-
-    for (int level = 0; level < length; level++) {
-        if (temporaryNode->children[pattern[level]] == NULL) {
-            temporaryNode->children[pattern[level]] = createNewNode();
+// Função para inicializar a Trie com caracteres ASCII
+void initializeTrie() {
+    if (root == NULL) {
+        root = createNode();
+       
+        for (int i = 0; i < 256; i++) {
+            char character = (char)i;
+            char pattern[2] = { character, '\0' };
+            insertPattern(root, pattern);
+            printf("Initial trie characters added: ");
+            printf("%c \n", character);
         }
-        temporaryNode = temporaryNode->children[pattern[level]];
-    }
-
-    if (indexOfPattern >= sizeOfTheDictionary) {
-        return 0;
-    } else {
-        temporaryNode->indexOfPattern = indexOfPattern++;
-        printf("Padrao adicionado: %.*s - %d\n", length, pattern, temporaryNode->indexOfPattern);
-        return temporaryNode->indexOfPattern;
     }
 }
 
-// Função para buscar um nó na trie
-int search(unsigned char *pattern, int length, trieNode *dictionary) {
-    trieNode *temporaryNode = dictionary;
+// Função para inserir um padrão na trie
+void insertPattern(TrieNode *node, const char *pattern) {
+    TrieNode *current = node;
+    int len = strlen(pattern);
+    for (int i = 0; i < len; i++) {
+        unsigned char index = (unsigned char)pattern[i];
+        if (!current->children[index]) {
+            current->children[index] = createNode();
+        }
+        current = current->children[index];
+    }
+    current->isEndOfPattern = 1;
+}
 
-    for (int i = 0; i < length; i++) {
-        if (temporaryNode->children[pattern[i]] == NULL) {
+// Função para buscar um padrão na trie
+int searchPattern(TrieNode *node, const char *pattern) {
+    TrieNode *current = node;
+    int len = strlen(pattern);
+    for (int i = 0; i < len; i++) {
+        unsigned char index = (unsigned char)pattern[i];
+        if (!current->children[index]) {
             return 0;
         }
-        temporaryNode = temporaryNode->children[pattern[i]];
+        current = current->children[index];
     }
-    return temporaryNode->indexOfPattern;
+    return current != NULL && current->isEndOfPattern;
 }
 
-// Função para adicionar um código de padrão à string de saída
-char *output(int code, char *string, int length) {
-    char buffer[12];
-    sprintf(buffer, "%d", code);
-    strcat(string, buffer);
-    printf("%d\n", code);
-    return string;
+// Função para adicionar um padrão e seu reverso na trie
+void addPatternAndReverse(const char *pattern) {
+    if (!searchPattern(root, pattern)) {
+        insertPattern(root, pattern);
+        printf("Pattern added: %s\n", pattern);
+    }
+    
+    int len = strlen(pattern);
+    char *reverse_pattern = (char *)malloc(len + 1);
+    for (int i = 0; i < len; i++) {
+        reverse_pattern[i] = pattern[len - i - 1];
+    }
+    reverse_pattern[len] = '\0';
+    
+    if (!searchPattern(root, reverse_pattern)) {
+        insertPattern(root, reverse_pattern);
+        printf("Reverse pattern added: %s\n", reverse_pattern);
+    }
+    
+    free(reverse_pattern);
 }
 
-// Função para concatenar padrões
-unsigned char *concat(unsigned char *patternA, int lengthA, unsigned char *patternB, int lengthB) {
-    unsigned char *concatenation = (unsigned char *)malloc((lengthA + lengthB) * sizeof(unsigned char));
-    if (!concatenation) {
-        fprintf(stderr, "Memory allocation error\n");
-        exit(EXIT_FAILURE);
-    }
+// Função para comprimir uma sequência usando trie para padrões e seus reversos
+void compress(const char *sequence) {
+    initializeTrie();
 
-    memcpy(concatenation, patternA, lengthA);
-    memcpy(concatenation + lengthA, patternB, lengthB);
+    int len = strlen(sequence);
+    for (int i = 0; i < len; i++) {
+        for (int j = i + 1; j <= len; j++) {
+            char *pattern = (char *)malloc((j - i + 1) * sizeof(char));
+            strncpy(pattern, sequence + i, j - i);
+            pattern[j - i] = '\0';
 
-    printf("%.*s\n", lengthA + lengthB, concatenation);
-
-    return concatenation;
-}
-
-// Função para inverter um array de unsigned char
-unsigned char *reverse(unsigned char *originalArray, int length) {
-    unsigned char *invertedArray = (unsigned char *)malloc(length * sizeof(unsigned char));
-    if (!invertedArray) {
-        fprintf(stderr, "Memory allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-
-    for (int i = 0; i < length; i++) {
-        invertedArray[i] = originalArray[length - 1 - i];
-    }
-
-    return invertedArray;
-}
-
-// Função para processar um bloco de um arquivo e comprimi-lo usando o algoritmo lzwdr
-char *lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
-    char *outputString = (char *)malloc(blockSize * sizeof(char) * 4);  // Ajustado para evitar possível estouro
-    if (!outputString) {
-        fprintf(stderr, "Memory allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-    outputString[0] = '\0';  // Inicializar string vazia
-
-    unsigned char *patternA = (unsigned char *)malloc(blockSize * sizeof(unsigned char));
-    unsigned char *patternB = (unsigned char *)malloc(blockSize * sizeof(unsigned char));
-    if (!patternA || !patternB) {
-        fprintf(stderr, "Memory allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-
-    int sizeOfPatternA = 0;
-    int sizeOfPatternB = 0;
-    int code = 0;
-    int index = 0;
-
-    patternA[sizeOfPatternA++] = block[index++];
-
-    while (index < blockSize) {
-        code = search(patternA, sizeOfPatternA, dictionary);
-        patternB[sizeOfPatternB++] = block[index];
-
-        while (search(concat(patternB, sizeOfPatternB, &block[index], 1), sizeOfPatternB + 1, dictionary) != 0 && (index) < blockSize) {
-            patternB = (unsigned char *)realloc(patternB, (sizeOfPatternB + 1) * sizeof(unsigned char));
-            if (!patternB) {
-                fprintf(stderr, "Memory allocation error\n");
-                exit(EXIT_FAILURE);
-            }
-            patternB[sizeOfPatternB++] = block[index++];
-        }
-
-        outputString = output(code, outputString, strlen(outputString));
-
-        for (int j = 0; j <= sizeOfPatternB && indexOfPattern < sizeOfTheDictionary; j++) {
-            unsigned char *newPattern = concat(patternA, sizeOfPatternA, &patternB[j], 1);
-            insert(newPattern, sizeOfPatternA + 1, &dictionary);
-            free(newPattern);
-
-            unsigned char *reversedPattern = reverse(patternA, sizeOfPatternA + 1);
-            insert(reversedPattern, sizeOfPatternA + 1, &dictionary);
-            free(reversedPattern);
-        }
-
-        if (index >= blockSize) {
-            output(search(patternB, sizeOfPatternB, dictionary), outputString, strlen(outputString));
-        } else {
-            index += sizeOfPatternB;
-            memcpy(patternA, patternB, sizeOfPatternB);
-            sizeOfPatternA = sizeOfPatternB;
-            sizeOfPatternB = 0;
+            addPatternAndReverse(pattern);
+            free(pattern);
         }
     }
+}
 
-    free(patternA);
-    free(patternB);
-    return outputString;
+// Função para processar arquivo em pedaços e comprimir cada pedaço
+void processFileInChunks(const char *filename, size_t chunkSize) {
+    FILE *inputFile = fopen(filename, "r");
+    if (inputFile == NULL) {
+        perror("Error opening input file");
+        exit(1);
+    }
+
+    fseek(inputFile, 0, SEEK_END);
+    long inputFileSize = ftell(inputFile);
+    fseek(inputFile, 0, SEEK_SET);
+
+    char *buffer = (char *)malloc(chunkSize * sizeof(char));
+    size_t bytesRead = 0;
+
+    while ((bytesRead = fread(buffer, sizeof(char), chunkSize, inputFile)) > 0) {
+        buffer[bytesRead] = '\0';  // Termina com nulo o buffer
+        compress(buffer);
+    }
+
+    free(buffer);
+    fclose(inputFile);
 }
 
 int main(int argc, char *argv[]) {
     if (argc != 4) {
-        fprintf(stderr, "Usage: %s <filename> <blocksize> <dicsize>\n", argv[0]);
-        return EXIT_FAILURE;
+        printf("Usage: %s <input file> <param1> <param2>\n", argv[0]);
+        return 1;
     }
 
-    trieNode *dictionary = NULL;
-    FILE *fileToCompress;
-    unsigned char *buffer;
-    size_t blockSize;
-    long fileSize;
-    size_t bytesRead;
-    clock_t start, end;
-    char *fileName = argv[1];
-    char *blockComparator = argv[2];
-    char *sizeAux = argv[3];
+    const char *inputFileName = argv[1];
+    size_t chunkSize = 65536;
 
-    fileToCompress = fopen(fileName, "rb");
-    if (!fileToCompress) {
-        perror("Error opening file");
-        return EXIT_FAILURE;
-    }
+    processFileInChunks(inputFileName, chunkSize);
 
-    fseek(fileToCompress, 0, SEEK_END);
-    fileSize = ftell(fileToCompress);
-    rewind(fileToCompress);
-
-    blockSize = (strcmp(blockComparator, "-86") == 0) ? 88064 :
-                (strcmp(blockComparator, "-32") == 0) ? 32768 : 65536;
-
-    sizeOfTheDictionary = (strcmp(sizeAux, "-12") == 0) ? 4096 :
-                          (strcmp(sizeAux, "-24") == 0) ? 16777216 : 65536;
-
-    for (int i = 0; i < ALPHABET_SIZE; i++) {
-        unsigned char ind[1] = {(unsigned char)i};
-        insert(ind, 1, &dictionary);
-    }
-
-    buffer = (unsigned char *)malloc(blockSize * sizeof(unsigned char));
-    if (!buffer) {
-        fprintf(stderr, "Memory allocation error\n");
-        return EXIT_FAILURE;
-    }
-
-    start = clock();
-    while (fileSize > 0) {
-        bytesRead = fread(buffer, 1, blockSize, fileToCompress);
-        if (bytesRead == 0) {
-            break;
-        }
-
-        lzwdr(buffer, bytesRead, dictionary);
-        fileSize -= bytesRead;
-    }
-    end = clock();
-    double duration = ((double)(end - start)) / CLOCKS_PER_SEC;
-
-    printf("Compression completed in %.2f seconds\n", duration);
-
-    fclose(fileToCompress);
-    free(buffer);
+    // Liberar memória da Trie não é necessário aqui, conforme requisito de não limpar a Trie
 
     return 0;
 }
