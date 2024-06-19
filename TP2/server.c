@@ -257,7 +257,7 @@ int main(int argc, char* argv[]) {
 
     sendData(F, A, Framecount, ip, port); // Start sending data to the server
 
-    pthread_join(exitThread, NULL); // Wait for the exit thread to finish
+    pthread_join(exitThread, NULL);
     printStatistics(&pdu);
 
     return 0;
