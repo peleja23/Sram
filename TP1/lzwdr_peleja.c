@@ -67,7 +67,7 @@ int insert(unsigned char *pattern, int length, trieNode **dictionary){
         return 0;
     } else {
         temporaryNode->indexOfPattern = indexOfPattern;
-        printf("Padrao adicionado: ");
+        printf("Padrão adicionado: ");
         for(int level = 0; level < length; level++){
              printf("%c", pattern[level]);
         }
@@ -103,9 +103,12 @@ int search(unsigned char *pattern, int length, trieNode *dictionary){
     @param length - comprimento da string.
     @return - string de saída com o código adicionado.
 */
-int* output(int code, int* output, int length){
-    output[length] = code;
-    return output;
+char* output(int code, char* string, int length){
+    char codeString[12];
+    sprintf(codeString, "%d,", code);
+    strcat(string, codeString);
+    //printf("Aqui: %s \n",string);
+    return string;
 }
 
 /*
@@ -145,7 +148,8 @@ unsigned char* reverse(unsigned char *originalArray, int length) {
     @return - essa função retorna a string de saída após o bloco ter sido processado pelo algoritmo LZWdR.
 */
 char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
-    int* outputArray = malloc(blockSize * sizeof(int)); // tamanho grande suficiente para armazenar a saída
+    char* outputString = malloc(blockSize * sizeof(char) * 4); // tamanho grande suficiente para armazenar a saída
+    outputString[0] = '\0'; // inicializa a string de saída
     unsigned char* patternA = malloc(blockSize * sizeof(unsigned char));
     unsigned char* patternB = malloc(blockSize * sizeof(unsigned char));
     int sizeOfPatternA = 1;
@@ -153,38 +157,37 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
     int code = 0;
     int index = 0;
     int i = 0;
-    int outputPosition = 0;
 
     patternA[0] = block[index];
     index++; 
-    
-    while(index + i < blockSize) {
+    while (index < blockSize ) {
         // Processamento do bloco para encontrar o maior patternB após patternA já no dicionário.
         code = search(patternA, sizeOfPatternA, dictionary);
         patternB[0] = block[index];
-        while(search(concat(patternB, sizeOfPatternB, &block[index+i], 1), sizeOfPatternB + 1, dictionary) != 0) {
-            unsigned char* aux = concat(patternB, sizeOfPatternB, &block[index+i], 1);
-            memcpy(patternB, aux, sizeOfPatternB + 1);
+        i = 1;
+        while (index + 1 < blockSize && search(concat(patternB, sizeOfPatternB, &block[index + i], 1), sizeOfPatternB + 1, dictionary)) {
+            unsigned char* aux = concat(patternB, sizeOfPatternB, &block[index + i], 1);
             sizeOfPatternB++;
-            free(aux);
-            i = i + 1;
+            free(patternB);
+            patternB = aux;
+            i++;
         }
 
-        // Enviar o código de patternA para a saída. 
-        outputArray = output(code, outputArray, outputPosition);
-        outputPosition ++;
+        // Enviar o código de patternA para a saída.
+        outputString = output(code, outputString, strlen(outputString));
+
         // Inserir no dicionário todos os novos padrões enquanto o dicionário não estiver cheio
         int j = 0;
         int t = sizeOfTheDictionary - 1;
-        
-        while(j <= i && t < sizeOfTheDictionary) {
+
+        while (j <= sizeOfPatternB && t < sizeOfTheDictionary) {
             unsigned char* newPattern = concat(patternA, sizeOfPatternA, patternB, j);
-            if (search(newPattern, sizeOfPatternA + 1, dictionary) == 0) {
-                t = insert(newPattern, sizeOfPatternA + 1, &dictionary);
+            if (search(newPattern, sizeOfPatternA + j, dictionary) == 0) {
+                t = insert(newPattern, sizeOfPatternA + j, &dictionary);
                 if (t < sizeOfTheDictionary) {
-                    unsigned char* reversedPattern = reverse(newPattern, sizeOfPatternA + 1);
-                    if (search(reversedPattern, sizeOfPatternA + 1, dictionary) == 0) {
-                        t = insert(reversedPattern, sizeOfPatternA + 1, &dictionary);
+                    unsigned char* reversedPattern = reverse(newPattern, sizeOfPatternA + j);
+                    if (search(reversedPattern, sizeOfPatternA + j, dictionary) == 0) {
+                        t = insert(reversedPattern, sizeOfPatternA + j, &dictionary);
                     }
                     free(reversedPattern);
                 }
@@ -193,30 +196,21 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
             j++;
         }
 
-        if(index + i >= blockSize){
-            output(search(patternB, sizeOfPatternB, dictionary), outputArray, outputPosition);
-            outputPosition++;
+        if (index + i >= blockSize) {
+            output(search(patternB, sizeOfPatternB, dictionary), outputString, strlen(outputString));
+            index += i;
         } else {
-            index = index + i + 1;
+            index += i;
+            free(patternA);
+            patternA = malloc(sizeOfPatternB * sizeof(unsigned char));
             memcpy(patternA, patternB, sizeOfPatternB);
             sizeOfPatternA = sizeOfPatternB;
             sizeOfPatternB = 1;
         }
-        i = 0;
     }
 
     free(patternA);
     free(patternB);
-    char* outputString = malloc(blockSize * sizeof(char) * 4);
-    outputString[0] = '\0';
-    int h = 0;
-    for(i = 0; i <outputPosition; i++){
-        outputString[h] = outputArray[i];
-        h++;
-        outputString[h] = ',';
-        h++; 
-    }
-    free(outputArray);
     return outputString;
 }
 
@@ -303,7 +297,7 @@ int main(int argc, char *argv[]){
 
     end = clock();
     double duration = ((double)end - start) / CLOCKS_PER_SEC; // duração da compressão em segundos
-    printf("Duraçao da compressao: %f segundos\n", duration);
+    printf("Duração da compressão: %f segundos\n", duration);
 
     fclose(fileToCompress);
     fclose(outputFile);
