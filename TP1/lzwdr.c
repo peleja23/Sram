@@ -153,11 +153,58 @@ unsigned char* reverse(unsigned char *originalArray, int length) {
     return invertedArray;
 }
 
-int num_bits_needed(unsigned int num) {
+int numberOfBits(unsigned int num) {
     int bits = 0;
-    while (num > 0) {
-        num >>= 1;
-        bits++;
+    if (num <= 256){
+        bits = 8;
+    }
+    if (num > 256 && num <= 512){
+        bits = 9;
+    }
+    if(num > 512 && num <= 1024){
+        bits = 10;
+    }
+        if(num > 1024 && num <= 2048){
+        bits = 11;
+    }
+        if(num > 2048 && num <= 4096){
+        bits = 12;
+    }
+        if(num > 4096 && num <= 8192){
+        bits = 13;
+    }
+        if(num > 8192 && num <= 16384){
+        bits = 14;
+    }
+        if(num > 16384 && num <= 32768){
+        bits = 15;
+    }
+        if(num > 32768 && num <= 65536){
+        bits = 16;
+    }
+    if(num > 65536 && num <= 131072){
+        bits = 17;
+    }
+    if(num > 131072 && num <= 262144){
+        bits = 18;
+    }
+    if(num > 262144 && num <= 524288){
+        bits = 19;
+    }
+    if(num > 524288 && num <= 1048576){
+        bits = 20;
+    }
+    if(num > 1048576 && num <= 2097152){
+        bits = 21;
+    }
+    if(num > 2097152 && num <= 4194304){
+        bits = 22;
+    }
+    if(num > 4194304 && num <= 8388608){
+        bits = 23;
+    }
+    if(num > 8388608 && num <= 16777216	){
+        bits = 24;
     }
     return bits;
 }
@@ -197,8 +244,7 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
 
         //Send the code of patternA to the output. 
         outputString = output(code, outputString, strlen(outputString));
-        compressedSize += num_bits_needed(code);
-
+        compressedSize += numberOfBits(code);
         //Insert in the dictionary all the new patterns while the dictionary is not full
         int j = 0;
         int t = sizeOfTheDictionary - 1;
@@ -221,7 +267,7 @@ char* lzwdr(unsigned char *block, size_t blockSize, trieNode *dictionary) {
 
         if (index + i >= blockSize) {
             output(search(patternB, sizeOfPatternB, dictionary), outputString, strlen(outputString));
-             compressedSize += num_bits_needed(search(patternB, sizeOfPatternB, dictionary));
+            compressedSize += numberOfBits(search(patternB, sizeOfPatternB, dictionary));
             index += i;
         } else {
             index += i;
@@ -328,8 +374,8 @@ int main(int argc, char *argv[]){
     double duration = ((double)end - start) / CLOCKS_PER_SEC; //duration of the compression in seconds.
     printf("Numero blocos processados: %d\n", numberOfBlocks);
     printf("Tamanho de ficheiro processado: %d bytes\n", fileSize);
-    printf("Tamanho de ficheiro comprimido: %d bytes\n", compressedSize / 8);
-    printf("Percentagem de compressao: %ld %%\n", 100 - (((compressedSize / 8) * 100) / fileSize));
+    printf("Tamanho de ficheiro comprimido: %d bytes\n", compressedSize/8);
+    printf("Percentagem de compressao: %ld %%\n", 100 - ((compressedSize / 8) * 100) / fileSize);
     printf("Numero de codigos de padroes enviados para o output: %d\n", numberOfCodes);
     printf("Numero de vezes que o tamanho maximo do dicionario foi atingido: %d\n", dictionaryCap);
     printf("Duracao da compressao: %f segundos\n", duration);
