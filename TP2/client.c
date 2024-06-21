@@ -19,15 +19,51 @@ typedef struct {
 } PDU;
 
 PDU *buffer;
-int bufferSize;  // Nova variável para armazenar o tamanho do buffer
+int bufferSize = 2;
 int bufferHead = 0;
 int bufferTail = 0;
-int frameInterval = 0; // Intervalo entre frames em microsegundos
-int serverPort;
+int frameInterval = 0;
+int bufferReset = 0;
+int framesCounter = 0;
+int skippedFrames = 0;
 int receptionPort;
+int firstFrameCount = 0;
+int lastFrameCount = 0;
+int keepRunning = 1;
+
 pthread_mutex_t bufferMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t statsMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t bufferNotEmpty = PTHREAD_COND_INITIALIZER;
 pthread_cond_t bufferNotFull = PTHREAD_COND_INITIALIZER;
+
+void updateBufferAndInterval(int A, int F) {
+    pthread_mutex_lock(&bufferMutex);
+
+    int newBufferSize = pow(10, F) * A;
+    int newFrameInterval = 1000000 / pow(10, F);
+
+    if (newBufferSize != bufferSize) {
+        PDU *newBuffer = malloc(newBufferSize * sizeof(PDU));
+        if (bufferHead <= bufferTail) {
+            memcpy(newBuffer, buffer + bufferHead, (bufferTail - bufferHead) * sizeof(PDU));
+        } else {
+            int firstPartSize = bufferSize - bufferHead;
+            memcpy(newBuffer, buffer + bufferHead, firstPartSize * sizeof(PDU));
+            memcpy(newBuffer + firstPartSize, buffer, bufferTail * sizeof(PDU));
+        }
+
+        bufferSize = newBufferSize;
+        bufferTail = (bufferTail - bufferHead + bufferSize) % bufferSize;
+        bufferHead = 0;
+
+        free(buffer);
+        buffer = newBuffer;
+    }
+
+    frameInterval = newFrameInterval;
+
+    pthread_mutex_unlock(&bufferMutex);
+}
 
 void* receivePDU(void* arg) {
     int udpSocket;
@@ -35,11 +71,6 @@ void* receivePDU(void* arg) {
     PDU pdu;
 
     udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (udpSocket < 0) {
-        perror("Erro ao criar socket");
-        pthread_exit(NULL);
-    }
-
     memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = INADDR_ANY;
@@ -52,13 +83,35 @@ void* receivePDU(void* arg) {
     }
 
     while (1) {
+        pthread_mutex_lock(&statsMutex);
+        if (!keepRunning) {
+            pthread_mutex_unlock(&statsMutex);
+            break;
+        }
+        pthread_mutex_unlock(&statsMutex);
+
         recvfrom(udpSocket, &pdu, sizeof(PDU), 0, NULL, NULL);
+        framesCounter++;
+
+        if (firstFrameCount == 0) {
+            firstFrameCount = pdu.Framecount;
+        }
+        lastFrameCount = pdu.Framecount;
+
+        if (pdu.A != bufferSize / pow(10, pdu.F) || 1000000 / pow(10, pdu.F) != frameInterval) {
+            updateBufferAndInterval(pdu.A, pdu.F);
+        }
 
         pthread_mutex_lock(&bufferMutex);
-        while ((bufferTail + 1) % bufferSize == bufferHead) {
-            pthread_cond_wait(&bufferNotFull, &bufferMutex);
+        if ((bufferTail + 1) % bufferSize == bufferHead) {
+            int skipped = (bufferTail + bufferSize - bufferHead) % bufferSize;
+            printf("Buffer full. Resynchronizing by discarding %d frames.\n", skipped);
+            skippedFrames += skipped;
+            bufferHead = 0;
+            bufferTail = 0;
+            bufferReset++;
         }
-        
+
         buffer[bufferTail] = pdu;
         bufferTail = (bufferTail + 1) % bufferSize;
         pthread_cond_signal(&bufferNotEmpty);
@@ -105,7 +158,7 @@ void displayTimeFromPDU(PDU *pdu, SDL_Renderer *renderer, SDL_Texture **textures
 }
 
 void* displayClock(void *arg) {
-    SDL_Window *window = SDL_CreateWindow("Relógio Digital", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 200, SDL_WINDOW_SHOWN);
+    SDL_Window *window = SDL_CreateWindow("Relógio Digital", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1000, 200, SDL_WINDOW_SHOWN);
     if (window == NULL) {
         printf("Erro ao criar janela: %s\n", SDL_GetError());
         pthread_exit(NULL);
@@ -117,6 +170,13 @@ void* displayClock(void *arg) {
 
     int running = 1;
     while (running) {
+        pthread_mutex_lock(&statsMutex);
+        if (!keepRunning) {
+            pthread_mutex_unlock(&statsMutex);
+            break;
+        }
+        pthread_mutex_unlock(&statsMutex);
+
         pthread_mutex_lock(&bufferMutex);
         while (bufferHead == bufferTail) {
             pthread_cond_wait(&bufferNotEmpty, &bufferMutex);
@@ -126,17 +186,14 @@ void* displayClock(void *arg) {
         bufferHead = (bufferHead + 1) % bufferSize;
         pthread_cond_signal(&bufferNotFull);
         pthread_mutex_unlock(&bufferMutex);
-        usleep(frameInterval);
         displayTimeFromPDU(&frame, renderer, textures);
-        
+        usleep(frameInterval);
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 running = 0;
             }
         }
-
-        SDL_Delay(10);  // Pequeno atraso para permitir que o sistema operacional processe outros eventos
     }
 
     for (int i = 0; i < 16; i++) {
@@ -151,70 +208,57 @@ void* displayClock(void *arg) {
 
 void readReceptionPort(const char* filename, int* port) {
     FILE* file = fopen(filename, "r");
-    if (file == NULL) {
-        perror("Failed to open config file");
-        exit(EXIT_FAILURE);
-    }
     fscanf(file, "%d", port);
     fclose(file);
 }
 
+void* listenForExit(void* arg) {
+    char input[10];
+    while (1) {
+        printf("Press 'Q' to stop execution and see statistics: \n");
+        scanf("%s", input);
+        if (strcmp(input, "Q") == 0) {
+            pthread_mutex_lock(&statsMutex);
+            keepRunning = 0;
+            pthread_mutex_unlock(&statsMutex);
+
+            pthread_cond_broadcast(&bufferNotEmpty);
+            pthread_cond_broadcast(&bufferNotFull);
+            break;
+        }
+    }
+    return NULL;
+}
+
+void printStatistics() {
+    int expectedFrames = lastFrameCount - firstFrameCount + 1;
+    int packetLoss = expectedFrames - framesCounter;
+    int packetLossBuffer = expectedFrames - framesCounter + skippedFrames;
+    printf("\n--- Statistics ---\n");
+    printf("Total times buffer reseted: %d\n", bufferReset);
+    printf("Total frames lost without buffer reset: %d\n", packetLoss);
+    printf("Total frames lost with buffer reset: %d\n", packetLossBuffer);
+}
+
 int main() {
-    PDU initialPDU;
-    pthread_t receiverThread, displayThread;
+    pthread_t receiverThread, displayThread, exitThread;
 
-    // Inicializa SDL
-    SDL_Init(SDL_INIT_VIDEO); 
-
-    // Inicializa SDL_image
+    SDL_Init(SDL_INIT_VIDEO);
     IMG_Init(IMG_INIT_PNG);
 
-    // Lê a porta de recepção do ficheiro
     readReceptionPort("client.txt", &receptionPort);
 
-    int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (udpSocket < 0) {
-        perror("Erro ao criar socket");
-        return 1;
-    }
-
-    struct sockaddr_in clientAddr;
-    memset(&clientAddr, 0, sizeof(clientAddr));
-    clientAddr.sin_family = AF_INET;
-    clientAddr.sin_addr.s_addr = INADDR_ANY;
-    clientAddr.sin_port = htons(receptionPort);
-
-    if (bind(udpSocket, (const struct sockaddr *)&clientAddr, sizeof(clientAddr)) < 0) {
-        perror("Erro ao fazer bind do socket");
-        close(udpSocket);
-        return 1;
-    }
-
-    // Recebe os parâmetros F e A
-    int recv_len = recvfrom(udpSocket, &initialPDU, sizeof(PDU), 0, NULL, NULL);
-    if (recv_len < 0) {
-        perror("Erro ao receber dados iniciais");
-        close(udpSocket);
-        return 1;
-    }
-    close(udpSocket);
-
-    printf("Parâmetros recebidos: F=%d, A=%d\n", initialPDU.F, initialPDU.A);
-    
-    // Define o tamanho do buffer e o intervalo entre frames com base nos valores de F e A
-    bufferSize = pow(10, initialPDU.F) * initialPDU.A;
-    printf("Buffer Size: %d", bufferSize);
     buffer = malloc(bufferSize * sizeof(PDU));
-
-    frameInterval = 1000000 / pow(10, initialPDU.F); // Em microsegundos
-    printf("Frame Interval: %d microseconds\n", frameInterval);
 
     pthread_create(&receiverThread, NULL, receivePDU, NULL);
     pthread_create(&displayThread, NULL, displayClock, NULL);
+    pthread_create(&exitThread, NULL, listenForExit, NULL);
 
+    pthread_join(exitThread, NULL);
     pthread_join(receiverThread, NULL);
     pthread_join(displayThread, NULL);
 
+    printStatistics();
 
     IMG_Quit();
     SDL_Quit();

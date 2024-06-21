@@ -22,7 +22,7 @@
 typedef struct {
     int A;     
     int F;  
-    int Framecount;   // Frame count
+    int Framecount;  // Frame count
     char digitImages[16][DIGIT_IMAGE_SIZE];  // Images
 } PDU;
 

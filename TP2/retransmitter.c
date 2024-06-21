@@ -23,7 +23,7 @@
 typedef struct {
     int A;                      
     int F;                
-    int Framecount;             // Frame count
+    int Framecount;    // Frame count
     char digitImages[16][DIGIT_IMAGE_SIZE];  // Images
 } PDU;
 
@@ -172,7 +172,6 @@ void* retransmitToClient(void* arg) {
 
         frameCount++;
         printf("Retransmitting Frame Number: %d -> A: %d, F: %d, Framecount: %d\n", frameCount, pdu.A, pdu.F, pdu.Framecount);
-
         // Pause after N frames
         if (frameCount % N == 0) {
             printf("Pausing for %d seconds...\n", P);
