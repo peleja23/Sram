@@ -58,12 +58,16 @@ void updateBufferAndInterval(int A, int F) {
 
     // Update the buffer if the size is different
     if (newBufferSize != bufferSize) {
+         // Allocate memory for a new buffer with the desired new size
         PDU *newBuffer = malloc(newBufferSize * sizeof(PDU));
         if (bufferHead <= bufferTail) {
+             // Copy the buffer segment from bufferHead to bufferTail
             memcpy(newBuffer, buffer + bufferHead, (bufferTail - bufferHead) * sizeof(PDU));
         } else {
             int firstPartSize = bufferSize - bufferHead;
+            // Copy the first part, which goes from bufferHead to the end of the buffer
             memcpy(newBuffer, buffer + bufferHead, firstPartSize * sizeof(PDU));
+            // Copy the second part, which goes from the start of the buffer to bufferTail
             memcpy(newBuffer + firstPartSize, buffer, bufferTail * sizeof(PDU));
         }
 
@@ -100,40 +104,54 @@ void* receivePDU(void* arg) {
         pthread_exit(NULL);
     }
 
-    while (1) {
-        pthread_mutex_lock(&statsMutex);
-        if (!keepRunning) {
-            pthread_mutex_unlock(&statsMutex);
-            break;
-        }
+while (1) {
+    // Lock the statsMutex to safely check the keepRunning flag
+    pthread_mutex_lock(&statsMutex);
+    if (!keepRunning) {
+        // If keepRunning is false, unlock the mutex and break the loop to stop the thread
         pthread_mutex_unlock(&statsMutex);
+        break;
+    }
+    // Unlock the mutex since the check is complete and keepRunning is true
+    pthread_mutex_unlock(&statsMutex);
 
-        recvfrom(udpSocket, &pdu, sizeof(PDU), 0, NULL, NULL);
-        framesCounter++;
+    recvfrom(udpSocket, &pdu, sizeof(PDU), 0, NULL, NULL);
+    framesCounter++;
 
-        if (firstFrameCount == 0) {
-            firstFrameCount = pdu.Framecount;
-        }
-        lastFrameCount = pdu.Framecount;
+    if (firstFrameCount == 0) {
+        firstFrameCount = pdu.Framecount;
+    }
+    // Update the last frame count with the current frame's count
+    lastFrameCount = pdu.Framecount;
 
-        if (pdu.A != bufferSize / pow(10, pdu.F) || 1000000 / pow(10, pdu.F) != frameInterval) {
-            updateBufferAndInterval(pdu.A, pdu.F);
-        }
+    // Check if the buffer size or frame interval needs to be updated
+    if (pdu.A != bufferSize / pow(10, pdu.F) || 1000000 / pow(10, pdu.F) != frameInterval) {
+        updateBufferAndInterval(pdu.A, pdu.F);
+    }
 
-        pthread_mutex_lock(&bufferMutex);
-        if ((bufferTail + 1) % bufferSize == bufferHead) {
-            int skipped = (bufferTail + bufferSize - bufferHead) % bufferSize;
-            printf("Buffer full. Resynchronizing by discarding %d frames.\n", skipped);
-            skippedFrames += skipped;
-            bufferHead = 0;
-            bufferTail = 0;
-            bufferReset++;
-        }
+    // Lock the bufferMutex to safely modify the circular buffer
+    pthread_mutex_lock(&bufferMutex);
+    // Check if the buffer is full
+    if ((bufferTail + 1) % bufferSize == bufferHead) {
+        // Calculate the number of frames to be skipped due to buffer overflow
+        int skipped = (bufferTail + bufferSize - bufferHead) % bufferSize;
+        printf("Buffer full. Resynchronizing by discarding %d frames.\n", skipped);
+        skippedFrames += skipped;
+        // Reset the buffer head and tail pointers
+        bufferHead = 0;
+        bufferTail = 0;
+        // Increment the buffer reset counter
+        bufferReset++;
+    }
 
-        buffer[bufferTail] = pdu;
-        bufferTail = (bufferTail + 1) % bufferSize;
-        pthread_cond_signal(&bufferNotEmpty);
-        pthread_mutex_unlock(&bufferMutex);
+    buffer[bufferTail] = pdu;
+    // Move the bufferTail pointer to the next position, wrapping around if necessary
+    bufferTail = (bufferTail + 1) % bufferSize;
+    // Signal that the buffer is not empty (for any threads waiting to consume data)
+    pthread_cond_signal(&bufferNotEmpty);
+    // Unlock the buffer mutex since the buffer modification is complete
+    pthread_mutex_unlock(&bufferMutex);
+}
     }
 
     close(udpSocket);
