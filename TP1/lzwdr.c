@@ -20,6 +20,7 @@ int indexOfPattern = 1;
 int dictionaryCap = 0;
 int numberOfCodes = 0;
 int compressedSize = 0;
+int totalSize = 0;
 
 typedef struct trieNode {
     struct trieNode *children[ALPHABET_SIZE]; 
@@ -71,16 +72,16 @@ int insert(unsigned char *pattern, int length, trieNode **dictionary){
         return 0;
     } else {
         temporaryNode->indexOfPattern = indexOfPattern;
+        totalSize += numberOfBits(indexOfPattern);
         if(indexOfPattern > 256 ){
-            printf("Padrao adicionado: ");
+            //printf("Padrao adicionado: ");
             for(int level = 0; level < length; level++){
-                printf("%c", pattern[level]);
+                // printf("%c", pattern[level]);
             }
-            printf(" - %d\n", temporaryNode->indexOfPattern);
+            //printf(" - %d\n", temporaryNode->indexOfPattern);
         }else{
-            if (indexOfPattern == 256)
-            {
-                printf("Dicionario inicializado\n");
+            if (indexOfPattern == 256){
+            //    printf("Dicionario inicializado\n");
             }
             
         }
@@ -164,22 +165,22 @@ int numberOfBits(unsigned int num) {
     if(num > 512 && num <= 1024){
         bits = 10;
     }
-        if(num > 1024 && num <= 2048){
+    if(num > 1024 && num <= 2048){
         bits = 11;
     }
-        if(num > 2048 && num <= 4096){
+    if(num > 2048 && num <= 4096){
         bits = 12;
     }
-        if(num > 4096 && num <= 8192){
+    if(num > 4096 && num <= 8192){
         bits = 13;
     }
-        if(num > 8192 && num <= 16384){
+    if(num > 8192 && num <= 16384){
         bits = 14;
     }
-        if(num > 16384 && num <= 32768){
+    if(num > 16384 && num <= 32768){
         bits = 15;
     }
-        if(num > 32768 && num <= 65536){
+    if(num > 32768 && num <= 65536){
         bits = 16;
     }
     if(num > 65536 && num <= 131072){
@@ -364,7 +365,7 @@ int main(int argc, char *argv[]){
         bytesRead = fread(buffer, 1, blockSize, fileToCompress); 
         char* compressedData = lzwdr(buffer, bytesRead, dictionary);
         numberOfBlocks++;
-        printf("Bloco %d tamanho do bloco %d\n", numberOfBlocks, bytesRead);
+        //printf("Bloco %d tamanho do bloco %d\n", numberOfBlocks, bytesRead);
         fputs(compressedData, outputFile);
         free(compressedData);
         auxFileSize -= bytesRead;
@@ -375,10 +376,14 @@ int main(int argc, char *argv[]){
     printf("Numero blocos processados: %d\n", numberOfBlocks);
     printf("Tamanho de ficheiro processado: %d bytes\n", fileSize);
     printf("Tamanho de ficheiro comprimido: %d bytes\n", compressedSize/8);
-    printf("Percentagem de compressao: %ld %%\n", 100 - ((compressedSize / 8) * 100) / fileSize);
+    double percentage = 100.0 - (((compressedSize / 8.0) * 100.0) / fileSize);
+    printf("Percentagem de compressao: %.2f \n", percentage);
     printf("Numero de codigos de padroes enviados para o output: %d\n", numberOfCodes);
     printf("Numero de vezes que o tamanho maximo do dicionario foi atingido: %d\n", dictionaryCap);
     printf("Duracao da compressao: %f segundos\n", duration);
+    double averageSize = ((double)totalSize / indexOfPattern);
+    printf("Tamanho medio dos padores inseridos: %.3f \n", averageSize);
+
 
     fclose(fileToCompress);
     fclose(outputFile);
