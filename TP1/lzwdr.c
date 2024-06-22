@@ -1,6 +1,6 @@
 /*
     Serviços de Rede & Aplicações Multimédia, TP-1
-    Ano Letivo 2022/2023
+    Ano Letivo 2023/2024
     Gustavo Oliveira - A83582
     Jose Peleja - A84436
     Marco Araujo - A89387
@@ -74,14 +74,14 @@ int insert(unsigned char *pattern, int length, trieNode **dictionary){
         temporaryNode->indexOfPattern = indexOfPattern;
         totalSize += numberOfBits(indexOfPattern);
         if(indexOfPattern > 256 ){
-            //printf("Padrao adicionado: ");
+            printf("Padrao adicionado: ");
             for(int level = 0; level < length; level++){
-                // printf("%c", pattern[level]);
+                 printf("%c", pattern[level]);
             }
-            //printf(" - %d\n", temporaryNode->indexOfPattern);
+            printf(" - %d\n", temporaryNode->indexOfPattern);
         }else{
             if (indexOfPattern == 256){
-            //    printf("Dicionario inicializado\n");
+                printf("Dicionario inicializado\n");
             }
             
         }
@@ -318,7 +318,6 @@ int main(int argc, char *argv[]){
         fputs("Erro ao abrir arquivo", stderr);
         exit(1);
     }
-    free(fileName);
 
     fseek(fileToCompress, 0, SEEK_END);
     fileSize = ftell(fileToCompress);
@@ -345,6 +344,15 @@ int main(int argc, char *argv[]){
     free(blockComparator);
     free(sizeAux);
 
+    printf("Gustavo Oliveira - Jose Peleja - Marco Araujo - 2023/2024 \n");
+    printf("Ficheiro de entrada: %s \n",fileName);
+    printf("Ficheiro de saida: Output.txt \n");
+    printf("Tamanho Maximo do dicionario: %ld \n",sizeOfTheDictionary);
+    printf("Tipo de dicionario inicial: Com 256 padroes\n");
+    printf("Tipo de limpeza do dicionario: Sem limpeza\n");
+    
+    free(fileName);
+
     //populate the dictionary
     for(int i  = 0; i < ALPHABET_SIZE; i++) {
         unsigned char ind[1];
@@ -365,7 +373,7 @@ int main(int argc, char *argv[]){
         bytesRead = fread(buffer, 1, blockSize, fileToCompress); 
         char* compressedData = lzwdr(buffer, bytesRead, dictionary);
         numberOfBlocks++;
-        //printf("Bloco %d tamanho do bloco %d\n", numberOfBlocks, bytesRead);
+        printf("Bloco %d tamanho do bloco %d\n", numberOfBlocks, bytesRead);
         fputs(compressedData, outputFile);
         free(compressedData);
         auxFileSize -= bytesRead;
