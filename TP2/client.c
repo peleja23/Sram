@@ -81,6 +81,9 @@ void updateBufferAndInterval(int A, int F) {
 
     frameInterval = newFrameInterval;
 
+    printf("Buffer Size: %d \n", bufferSize);
+    printf("Frame Interval %d \n", frameInterval);
+
     pthread_mutex_unlock(&bufferMutex);
 }
 
