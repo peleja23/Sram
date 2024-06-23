@@ -151,7 +151,6 @@ while (1) {
     pthread_cond_signal(&bufferNotEmpty);
     // Unlock the buffer mutex since the buffer modification is complete
     pthread_mutex_unlock(&bufferMutex);
-}
     }
 
     close(udpSocket);
@@ -314,7 +313,7 @@ int main() {
     pthread_t receiverThread, displayThread, exitThread;
 
     SDL_Init(SDL_INIT_VIDEO);  // Initialize the SDL video subsystem
-    IMG_Init(IMG_INIT_PNG);    // Initialize the SDL image subsystem with PNG support
+    IMG_Init(IMG_INIT_PNG);    // Initialize the SDL image subsystem 
 
     readReceptionPort("client.txt", &receptionPort); // Read the reception port from the configuration file
 
